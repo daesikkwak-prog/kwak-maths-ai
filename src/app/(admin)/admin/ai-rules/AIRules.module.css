@@ -1,0 +1,169 @@
+.container {
+  width: 100%;
+}
+
+.container h1 {
+  font-size: 28px;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  font-size: 14px;
+  margin: 0 0 30px 0;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #7f8c8d;
+}
+
+.rulesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.ruleCard {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  border-left: 4px solid #3498db;
+}
+
+.ruleCard h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  margin: 0;
+}
+
+.ruleContent {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.ruleContent p {
+  color: #555;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 80px;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.footer small {
+  color: #999;
+  font-size: 12px;
+}
+
+.editBtn {
+  padding: 8px 16px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.editBtn:hover {
+  background-color: #2980b9;
+}
+
+.editForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.editForm textarea {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.editForm textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.error {
+  padding: 10px;
+  background-color: #fee;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #c00;
+  font-size: 12px;
+}
+
+.success {
+  padding: 10px;
+  background-color: #efe;
+  border: 1px solid #cfc;
+  border-radius: 6px;
+  color: #060;
+  font-size: 12px;
+}
+
+.buttonGroup {
+  display: flex;
+  gap: 10px;
+}
+
+.saveBtn,
+.cancelBtn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.saveBtn {
+  background-color: #27ae60;
+  color: white;
+}
+
+.saveBtn:hover {
+  background-color: #229954;
+}
+
+.cancelBtn {
+  background-color: #95a5a6;
+  color: white;
+}
+
+.cancelBtn:hover {
+  background-color: #7f8c8d;
+}
+
+@media (max-width: 768px) {
+  .rulesGrid {
+    grid-template-columns: 1fr;
+  }
+}
