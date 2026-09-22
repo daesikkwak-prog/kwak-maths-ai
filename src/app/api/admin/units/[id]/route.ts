@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../../../lib/supabase/server';
-import type { ApiResponse } from '../../../../../../types';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth';
+import { handleError } from '@/lib/api/respond';
+import type { ApiResponse } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireRole('admin');
+
     const { id: unitId } = await params;
     const supabase = await getSupabaseServerClient();
     const body = await request.json();
@@ -44,14 +48,7 @@ export async function PATCH(
       data,
     } as ApiResponse<typeof data>);
   } catch (err) {
-    console.error('Error in PATCH /api/admin/units/[id]:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('PATCH /api/admin/units/[id]', err);
   }
 }
 
@@ -60,6 +57,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireRole('admin');
+
     const { id: unitId } = await params;
     const supabase = await getSupabaseServerClient();
 
@@ -85,13 +84,6 @@ export async function DELETE(
       data: { message: 'Unit deleted successfully' },
     } as ApiResponse<any>);
   } catch (err) {
-    console.error('Error in DELETE /api/admin/units/[id]:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('DELETE /api/admin/units/[id]', err);
   }
 }

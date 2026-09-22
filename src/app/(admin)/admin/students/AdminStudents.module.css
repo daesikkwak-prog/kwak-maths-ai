@@ -1,0 +1,58 @@
+.container {
+  max-width: 900px;
+}
+
+.container h1 {
+  font-size: 26px;
+  color: #2c3e50;
+}
+
+.subtitle {
+  color: #7a8194;
+  margin: 6px 0 24px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  display: block;
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.card h3 {
+  font-size: 18px;
+  color: #2c3e50;
+}
+
+.card p {
+  font-size: 14px;
+  color: #7a8194;
+  margin: 4px 0 12px;
+}
+
+.link {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.loading,
+.empty {
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  color: #9aa0b0;
+}

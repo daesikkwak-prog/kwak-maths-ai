@@ -1,0 +1,38 @@
+.wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.svg {
+  width: 100%;
+  min-width: 420px;
+  height: auto;
+}
+
+.grid {
+  stroke: #eceef5;
+  stroke-width: 1;
+}
+
+.line {
+  stroke: #667eea;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dot {
+  fill: #667eea;
+}
+
+.axisLabel {
+  font-size: 11px;
+  fill: #9aa0b0;
+}
+
+.empty {
+  padding: 30px;
+  text-align: center;
+  color: #9aa0b0;
+  font-size: 14px;
+}

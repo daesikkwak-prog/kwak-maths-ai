@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoutButton from '@/components/common/LogoutButton';
 import styles from './StudentLayout.module.css';
 
 export default function StudentLayout({
@@ -22,9 +23,7 @@ export default function StudentLayout({
           <Link href="/student/stats" className={styles.navItem}>
             공부기록
           </Link>
-          <Link href="/" className={styles.logout}>
-            🚪 로그아웃
-          </Link>
+          <LogoutButton className={styles.logout} />
         </nav>
       </header>
 

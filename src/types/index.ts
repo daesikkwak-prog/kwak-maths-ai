@@ -9,6 +9,7 @@ export interface User {
   school_level: SchoolLevel;
   grade: number;
   my_problem_formula_required: boolean;
+  auth_user_id: string | null;
   is_active: boolean;
   deleted_at: string | null;
   created_at: string;
@@ -61,6 +62,7 @@ export interface Problem {
   grade_option_id: string | null;
   unit_id: string | null;
   difficulty_option_id: string | null;
+  content: string | null; // 문제 본문 (AI 출제분 또는 사진에서 추출한 텍스트)
   answer: string | null; // AI가 생성한 정답 (user_uploaded는 null)
   solution: string | null; // AI가 생성한 풀이 (user_uploaded는 null)
   created_at: string;
@@ -95,6 +97,56 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// 통계
+export interface UnitStat {
+  unit_id: string;
+  unit_name: string;
+  total_problems: number;
+  correct_problems: number;
+  correct_rate: number;
+}
+
+export interface TrendPoint {
+  date: string; // YYYY-MM-DD
+  total_problems: number;
+  correct_problems: number;
+  correct_rate: number;
+}
+
+export interface StudentStats {
+  total_problems_solved: number;
+  correct_problems: number;
+  correct_rate: number;
+  give_up_count: number;
+  total_attempts: number;
+  study_time_minutes: number;
+  vulnerable_units: UnitStat[];
+  trend: TrendPoint[];
+}
+
+export interface HistoryAttempt {
+  attempt_no: number;
+  is_correct: boolean;
+  gave_up: boolean;
+  issue_summary: string;
+  final_solution_text: string | null;
+  created_at: string;
+}
+
+export interface HistoryItem {
+  problem_id: string;
+  source: ProblemSource;
+  content: string | null;
+  answer: string | null;
+  solution: string | null;
+  unit_name: string | null;
+  difficulty: string | null;
+  grade: string | null;
+  status: 'correct' | 'gave_up' | 'in_progress';
+  attempts: HistoryAttempt[];
+  last_attempt_at: string;
 }
 
 export interface GeminiResponse {

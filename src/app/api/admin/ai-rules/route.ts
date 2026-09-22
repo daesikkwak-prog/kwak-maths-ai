@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../../lib/supabase/server';
-import type { ApiResponse } from '../../../../../types';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth';
+import { handleError } from '@/lib/api/respond';
+import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
+    await requireRole('admin');
+
     const supabase = await getSupabaseServerClient();
 
     const { data, error } = await supabase
@@ -23,13 +27,6 @@ export async function GET(request: NextRequest) {
       data,
     } as ApiResponse<typeof data>);
   } catch (err) {
-    console.error('Error in GET /api/admin/ai-rules:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('GET /api/admin/ai-rules', err);
   }
 }

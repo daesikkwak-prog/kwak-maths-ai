@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../../../lib/supabase/server';
-import type { ApiResponse } from '../../../../../../types';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth';
+import { handleError } from '@/lib/api/respond';
+import type { ApiResponse } from '@/types';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ level: string }> }
 ) {
   try {
+    await requireRole('admin');
+
     const { level } = await params;
     const supabase = await getSupabaseServerClient();
     const body = await request.json();
@@ -65,13 +69,6 @@ export async function PATCH(
       data: result.data,
     } as ApiResponse<typeof result.data>);
   } catch (err) {
-    console.error('Error in PATCH /api/admin/ai-rules/[level]:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('PATCH /api/admin/ai-rules/[level]', err);
   }
 }

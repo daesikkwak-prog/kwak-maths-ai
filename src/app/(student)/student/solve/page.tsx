@@ -1,256 +1,415 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import SolutionCanvas, { SolutionCanvasHandle } from '@/components/student/SolutionCanvas';
+import ConfirmGiveUpModal from '@/components/student/ConfirmGiveUpModal';
+import { useSession } from '@/lib/hooks/useSession';
+import { useStudySession } from '@/lib/hooks/useStudySession';
+import { compressImage, fileToBase64, validateImageFile } from '@/lib/utils/image';
+import { MAX_IMAGE_SIZE, MIN_ATTEMPTS_FOR_GIVE_UP, RESIZE_QUALITY, RESIZE_WIDTH } from '@/lib/constants';
 import styles from './Solve.module.css';
 
-export default function SolveProblems() {
-  const [step, setStep] = useState<'select' | 'solve' | 'result'>('select');
-  const [problemId, setProblemId] = useState<string>('');
-  const [grades, setGrades] = useState<any[]>([]);
-  const [units, setUnits] = useState<any[]>([]);
-  const [selectedGrade, setSelectedGrade] = useState<string>('');
-  const [selectedUnit, setSelectedUnit] = useState<string>('');
-  const [selectedDifficulty, setSelectedDifficulty] = useState<string>('');
-  const [attempts, setAttempts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+interface AttemptResult {
+  attempt_no: number;
+  is_correct: boolean;
+  issue_summary: string;
+  final_solution_text: string | null;
+  feedback: string;
+  can_give_up: boolean;
+}
 
-  useEffect(() => {
-    fetchGrades();
+type InputMode = 'canvas' | 'photo';
+
+function SolvePageInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user, loading: sessionLoading } = useSession();
+
+  const [problemId, setProblemId] = useState<string>(searchParams.get('problem_id') || '');
+  const [problemText, setProblemText] = useState<string>('');
+  const [problemSource, setProblemSource] = useState<string>('');
+  const [attempts, setAttempts] = useState<AttemptResult[]>([]);
+  const [latest, setLatest] = useState<AttemptResult | null>(null);
+  const [giveUpResult, setGiveUpResult] = useState<{ answer: string; explanation: string } | null>(null);
+
+  const [inputMode, setInputMode] = useState<InputMode>('canvas');
+  const [loadingProblem, setLoadingProblem] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [givingUp, setGivingUp] = useState(false);
+  const [showGiveUpModal, setShowGiveUpModal] = useState(false);
+  const [error, setError] = useState('');
+
+  const canvasRef = useRef<SolutionCanvasHandle>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const myProblemInputRef = useRef<HTMLInputElement>(null);
+
+  // 문제풀이 화면에 머무는 동안을 학습 시간으로 기록
+  useStudySession(!!user);
+
+  const solved = latest?.is_correct || !!giveUpResult;
+  const attemptCount = attempts.length;
+  const canGiveUp = !solved && attemptCount >= MIN_ATTEMPTS_FOR_GIVE_UP;
+
+  /** 문제 본문과 기존 시도 기록을 불러온다 (새로고침/링크 진입 대응) */
+  const loadProblem = useCallback(async (id: string) => {
+    setLoadingProblem(true);
+    setError('');
+    try {
+      const [problemRes, attemptsRes] = await Promise.all([
+        fetch(`/api/problems/${id}`),
+        fetch(`/api/attempts?problem_id=${id}`),
+      ]);
+
+      const problemJson = await problemRes.json();
+      const attemptsJson = await attemptsRes.json();
+
+      if (!problemJson.success) {
+        setError(problemJson.error || '문제를 불러오지 못했습니다.');
+        return;
+      }
+
+      setProblemText(problemJson.data.problem_text || '');
+      setProblemSource(problemJson.data.source || '');
+
+      if (attemptsJson.success) {
+        const list: AttemptResult[] = (attemptsJson.data || []).map((a: any) => ({
+          attempt_no: a.attempt_no,
+          is_correct: a.is_correct,
+          issue_summary: a.issue_summary,
+          final_solution_text: a.final_solution_text,
+          feedback: '',
+          can_give_up: false,
+        }));
+        setAttempts(list);
+        const gaveUp = (attemptsJson.data || []).find((a: any) => a.gave_up);
+        if (gaveUp) setGiveUpResult({ answer: '', explanation: '이미 포기한 문제입니다.' });
+      }
+    } catch {
+      setError('문제를 불러오지 못했습니다.');
+    } finally {
+      setLoadingProblem(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (selectedGrade) {
-      fetchUnits();
-    }
-  }, [selectedGrade]);
+    if (problemId) loadProblem(problemId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [problemId]);
 
-  const fetchGrades = async () => {
-    try {
-      const res = await fetch('/api/options?type=grade');
-      const data = await res.json();
-      if (data.success) {
-        setGrades(data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch grades:', err);
-    } finally {
-      setLoading(false);
-    }
+  const resetProblemState = () => {
+    setAttempts([]);
+    setLatest(null);
+    setGiveUpResult(null);
+    setError('');
+    canvasRef.current?.clear();
   };
 
-  const fetchUnits = async () => {
-    try {
-      const res = await fetch(`/api/units?grade_option_id=${selectedGrade}`);
-      const data = await res.json();
-      if (data.success) {
-        setUnits(data.data || []);
-      }
-    } catch (err) {
-      console.error('Failed to fetch units:', err);
-    }
-  };
+  /** "내 문제 풀기": 문제집 사진 → 문제 등록 */
+  const handleMyProblemUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
 
-  const handleGenerateProblem = async () => {
-    if (!selectedGrade || !selectedDifficulty) {
-      alert('학년과 난이도를 선택하세요.');
+    const invalid = validateImageFile(file, MAX_IMAGE_SIZE);
+    if (invalid) {
+      setError(invalid);
       return;
     }
 
-    setUploading(true);
+    setLoadingProblem(true);
+    setError('');
     try {
-      const res = await fetch('/api/problems/generate', {
+      const raw = await fileToBase64(file);
+      const compressed = await compressImage(raw, RESIZE_WIDTH, RESIZE_QUALITY);
+
+      const res = await fetch('/api/problems/from-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade_option_id: selectedGrade,
-          unit_id: selectedUnit || null,
-          difficulty_option_id: selectedDifficulty,
-        }),
+        body: JSON.stringify({ image_base64: compressed }),
       });
+      const json = await res.json();
 
-      const data = await res.json();
-      if (data.success) {
-        setProblemId(data.data.problem_id);
-        setAttempts([]);
-        setStep('solve');
+      if (!json.success) {
+        setError(json.error || '문제 등록에 실패했습니다.');
+        return;
       }
-    } catch (err) {
-      alert('문제 생성에 실패했습니다.');
+
+      resetProblemState();
+      setProblemId(json.data.problem_id);
+      setProblemText(json.data.problem_text);
+      setProblemSource(json.data.source);
+      router.replace(`/student/solve?problem_id=${json.data.problem_id}`);
+    } catch {
+      setError('문제 등록에 실패했습니다.');
     } finally {
-      setUploading(false);
+      setLoadingProblem(false);
     }
   };
 
-  const handleUploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const submitImage = async (imageBase64: string) => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch('/api/attempts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ problem_id: problemId, image_base64: imageBase64 }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || '채점에 실패했습니다.');
+        return;
+      }
+
+      const result: AttemptResult = json.data;
+      setAttempts((prev) => [...prev, result]);
+      setLatest(result);
+      canvasRef.current?.clear();
+    } catch {
+      setError('채점에 실패했습니다.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCanvasSubmit = async () => {
+    const dataUrl = canvasRef.current?.toDataURL();
+    if (!dataUrl) {
+      setError('풀이를 먼저 작성해주세요.');
+      return;
+    }
+    const compressed = await compressImage(dataUrl, RESIZE_WIDTH, RESIZE_QUALITY);
+    await submitImage(compressed);
+  };
+
+  const handlePhotoSubmit = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
 
-    setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target?.result as string;
-        const res = await fetch('/api/attempts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            student_id: 'test-student-001', // TODO: Replace with actual user ID
-            problem_id: problemId,
-            image_base64: base64,
-          }),
-        });
+    const invalid = validateImageFile(file, MAX_IMAGE_SIZE);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
 
-        const data = await res.json();
-        if (data.success) {
-          setAttempts([...attempts, data.data]);
-          setResult(data.data);
-          setStep('result');
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      alert('이미지 제출에 실패했습니다.');
+    const raw = await fileToBase64(file);
+    const compressed = await compressImage(raw, RESIZE_WIDTH, RESIZE_QUALITY);
+    await submitImage(compressed);
+  };
+
+  const handleGiveUp = async () => {
+    setGivingUp(true);
+    try {
+      const res = await fetch(`/api/problems/${problemId}/give-up`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || '포기 처리에 실패했습니다.');
+        return;
+      }
+
+      setGiveUpResult({ answer: json.data.answer, explanation: json.data.explanation });
+      setShowGiveUpModal(false);
+    } catch {
+      setError('포기 처리에 실패했습니다.');
     } finally {
-      setUploading(false);
+      setGivingUp(false);
     }
   };
+
+  if (sessionLoading) {
+    return <div className={styles.container}>로드 중...</div>;
+  }
 
   return (
     <div className={styles.container}>
-      {step === 'select' && (
-        <div className={styles.selectStep}>
-          <h1>문제 선택</h1>
-          <div className={styles.grid}>
-            <div>
-              <label>학년</label>
-              <select
-                value={selectedGrade}
-                onChange={(e) => {
-                  setSelectedGrade(e.target.value);
-                  setSelectedUnit('');
-                }}
-              >
-                <option value="">선택하세요</option>
-                {grades.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.value}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {units.length > 0 && (
-              <div>
-                <label>단원 (선택)</label>
-                <select
-                  value={selectedUnit}
-                  onChange={(e) => setSelectedUnit(e.target.value)}
-                >
-                  <option value="">전체</option>
-                  {units.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div>
-              <label>난이도</label>
-              <select
-                value={selectedDifficulty}
-                onChange={(e) => setSelectedDifficulty(e.target.value)}
-              >
-                <option value="">선택하세요</option>
-                <option value="하">하</option>
-                <option value="중">중</option>
-                <option value="상">상</option>
-              </select>
-            </div>
-          </div>
-
+      <div className={styles.topBar}>
+        <h1>✏️ 문제풀이</h1>
+        <div className={styles.topActions}>
+          <input
+            ref={myProblemInputRef}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={handleMyProblemUpload}
+          />
           <button
-            className={styles.btn}
-            onClick={handleGenerateProblem}
-            disabled={uploading}
+            className={styles.btnSecondary}
+            onClick={() => myProblemInputRef.current?.click()}
+            disabled={loadingProblem}
           >
-            {uploading ? '생성 중...' : '문제 생성'}
+            📷 내 문제 풀기
+          </button>
+          <button className={styles.btnSecondary} onClick={() => router.push('/student/bank')}>
+            📚 문제은행
           </button>
         </div>
-      )}
+      </div>
 
-      {step === 'solve' && (
-        <div className={styles.solveStep}>
-          <h1>풀이 제출</h1>
-          <div className={styles.uploadArea}>
-            <p>📸 풀이 이미지를 제출하세요</p>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleUploadImage}
-              disabled={uploading}
-              style={{ display: 'none' }}
-            />
-            <button
-              className={styles.uploadBtn}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
+      {error && <div className={styles.error}>{error}</div>}
+
+      {!problemId ? (
+        <div className={styles.emptyState}>
+          <p>풀 문제가 없어요.</p>
+          <p className={styles.emptyHint}>
+            문제은행에서 새 문제를 받거나, 문제집 사진을 올려 &quot;내 문제 풀기&quot;를 시작하세요.
+          </p>
+        </div>
+      ) : loadingProblem ? (
+        <div className={styles.emptyState}>문제를 불러오는 중...</div>
+      ) : (
+        <>
+          <section className={styles.problemCard}>
+            <div className={styles.problemHeader}>
+              <span className={styles.badge}>
+                {problemSource === 'user_uploaded' ? '내 문제' : 'AI 출제'}
+              </span>
+              <span className={styles.attemptCount}>시도 {attemptCount}회</span>
+            </div>
+            <p className={styles.problemText}>{problemText}</p>
+          </section>
+
+          {!solved && (
+            <section className={styles.solveCard}>
+              <div className={styles.tabs}>
+                <button
+                  className={inputMode === 'canvas' ? styles.tabActive : styles.tab}
+                  onClick={() => setInputMode('canvas')}
+                >
+                  ✏️ 직접 쓰기
+                </button>
+                <button
+                  className={inputMode === 'photo' ? styles.tabActive : styles.tab}
+                  onClick={() => setInputMode('photo')}
+                >
+                  📷 사진 올리기
+                </button>
+              </div>
+
+              {inputMode === 'canvas' ? (
+                <>
+                  <SolutionCanvas ref={canvasRef} />
+                  <button
+                    className={styles.btn}
+                    onClick={handleCanvasSubmit}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'AI가 채점 중...' : '풀이 제출하기'}
+                  </button>
+                </>
+              ) : (
+                <div className={styles.uploadArea}>
+                  <p>풀이를 촬영한 사진을 올려주세요</p>
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handlePhotoSubmit}
+                  />
+                  <button
+                    className={styles.btn}
+                    onClick={() => photoInputRef.current?.click()}
+                    disabled={submitting}
+                  >
+                    {submitting ? 'AI가 채점 중...' : '📷 사진 선택'}
+                  </button>
+                </div>
+              )}
+
+              <p className={styles.notice}>
+                제출한 이미지는 저장하지 않고, AI 분석 결과만 기록으로 남아요.
+              </p>
+            </section>
+          )}
+
+          {latest && (
+            <section
+              className={latest.is_correct ? styles.feedbackCorrect : styles.feedbackCard}
             >
-              {uploading ? '제출 중...' : '📷 사진 업로드'}
-            </button>
-          </div>
+              <h2>{latest.is_correct ? '🎉 정답이에요!' : '🤔 다시 한번 볼까요?'}</h2>
+              <p className={styles.feedbackText}>{latest.feedback}</p>
+              {latest.is_correct && latest.final_solution_text && (
+                <div className={styles.solutionBox}>
+                  <strong>내가 쓴 풀이</strong>
+                  <p>{latest.final_solution_text}</p>
+                </div>
+              )}
+            </section>
+          )}
+
+          {giveUpResult && (
+            <section className={styles.giveUpCard}>
+              <h2>📖 정답과 풀이</h2>
+              {giveUpResult.answer && (
+                <p className={styles.answerLine}>
+                  <strong>정답:</strong> {giveUpResult.answer}
+                </p>
+              )}
+              <p className={styles.feedbackText}>{giveUpResult.explanation}</p>
+            </section>
+          )}
 
           {attempts.length > 0 && (
-            <div className={styles.attempts}>
+            <section className={styles.historyCard}>
               <h3>시도 기록</h3>
-              {attempts.map((attempt, idx) => (
-                <div key={idx} className={styles.attemptCard}>
-                  <strong>시도 {idx + 1}:</strong>
-                  <p>{attempt.issue_summary}</p>
-                  {attempt.is_correct && (
-                    <span className={styles.correct}>✅ 정답</span>
-                  )}
-                </div>
-              ))}
-            </div>
+              <ol className={styles.historyList}>
+                {attempts.map((a) => (
+                  <li key={a.attempt_no}>
+                    <span className={styles.historyNo}>{a.attempt_no}차</span>
+                    <span>{a.issue_summary}</span>
+                    {a.is_correct && <span className={styles.correctTag}>정답</span>}
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
-        </div>
-      )}
 
-      {step === 'result' && result && (
-        <div className={styles.resultStep}>
-          <h1>{result.is_correct ? '🎉 정답입니다!' : '다시 풀어보세요'}</h1>
-          <div className={styles.resultCard}>
-            <p><strong>피드백:</strong> {result.feedback}</p>
-            {result.is_correct && (
-              <p><strong>풀이:</strong> {result.final_solution_text}</p>
-            )}
-          </div>
-
-          <div className={styles.actions}>
-            <button
-              className={styles.btn}
-              onClick={() => setStep('select')}
-            >
-              다른 문제 풀기
-            </button>
-            {!result.is_correct && (
+          <div className={styles.bottomActions}>
+            {solved ? (
+              <button className={styles.btn} onClick={() => router.push('/student/bank')}>
+                다음 문제 풀기
+              </button>
+            ) : (
               <button
-                className={styles.btnSecondary}
-                onClick={() => setStep('solve')}
+                className={styles.giveUpBtn}
+                onClick={() => setShowGiveUpModal(true)}
+                disabled={!canGiveUp}
+                title={
+                  canGiveUp
+                    ? ''
+                    : `${MIN_ATTEMPTS_FOR_GIVE_UP}회 이상 시도해야 포기할 수 있어요`
+                }
               >
-                다시 제출
+                포기하기
+                {!canGiveUp && ` (${attemptCount}/${MIN_ATTEMPTS_FOR_GIVE_UP}회)`}
               </button>
             )}
           </div>
-        </div>
+        </>
       )}
+
+      <ConfirmGiveUpModal
+        open={showGiveUpModal}
+        loading={givingUp}
+        onConfirm={handleGiveUp}
+        onCancel={() => setShowGiveUpModal(false)}
+      />
     </div>
+  );
+}
+
+export default function SolvePage() {
+  return (
+    <Suspense fallback={<div>로드 중...</div>}>
+      <SolvePageInner />
+    </Suspense>
   );
 }

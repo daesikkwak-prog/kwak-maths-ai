@@ -1,79 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../lib/supabase/server';
-import { generateProblem } from '../../../../lib/gemini';
-import type { ApiResponse } from '../../../../types';
+import { NextRequest } from 'next/server';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { generateProblem } from '@/lib/gemini';
+import { requireUser } from '@/lib/auth';
+import { ok, fail, handleError } from '@/lib/api/respond';
 
+/** 문제은행 출제: 학년/단원/난이도 기반 AI 출제 (정답·풀이 함께 생성 후 고정 저장) */
 export async function POST(request: NextRequest) {
   try {
+    await requireUser();
+
     const supabase = await getSupabaseServerClient();
-    const body = await request.json();
-    const { grade_option_id, unit_id, difficulty_option_id } = body;
+    const { grade_option_id, unit_id, difficulty_option_id } = await request.json();
 
     if (!grade_option_id || !difficulty_option_id) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'grade_option_id and difficulty_option_id are required',
-        } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return fail('학년과 난이도를 선택해주세요.');
     }
 
-    // 학년과 난이도 정보 조회
-    const { data: gradeOption, error: gradeError } = await supabase
+    const { data: gradeOption } = await supabase
       .from('options')
       .select('value')
       .eq('id', grade_option_id)
-      .single();
+      .maybeSingle();
 
-    const { data: diffOption, error: diffError } = await supabase
+    const { data: diffOption } = await supabase
       .from('options')
       .select('value')
       .eq('id', difficulty_option_id)
-      .single();
+      .maybeSingle();
 
-    if (gradeError || diffError) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid grade or difficulty option' } as ApiResponse<null>,
-        { status: 400 }
-      );
+    if (!gradeOption || !diffOption) {
+      return fail('올바르지 않은 학년 또는 난이도입니다.');
     }
 
-    // 단원 정보 조회
     let unitName = '';
     if (unit_id) {
-      const { data: unit, error: unitError } = await supabase
+      const { data: unit } = await supabase
         .from('units')
         .select('name')
         .eq('id', unit_id)
-        .single();
-
-      if (!unitError && unit) {
-        unitName = unit.name;
-      }
+        .maybeSingle();
+      if (unit) unitName = unit.name;
     }
 
-    // AI 규칙 조회
     const { data: aiRules, error: rulesError } = await supabase
       .from('active_ai_rules')
       .select('*');
 
     if (rulesError || !aiRules) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch AI rules' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      return fail('AI 기준 조회에 실패했습니다.', 500);
     }
 
-    // Gemini로 문제 생성
     const aiResponse = await generateProblem(
       gradeOption.value,
-      unitName || '일반',
+      unitName || '학년 전체 범위',
       diffOption.value,
       aiRules
     );
 
-    // DB에 문제 저장
     const { data: problem, error: insertError } = await supabase
       .from('problems')
       .insert({
@@ -81,6 +64,7 @@ export async function POST(request: NextRequest) {
         grade_option_id,
         unit_id: unit_id || null,
         difficulty_option_id,
+        content: aiResponse.problem,
         answer: aiResponse.answer,
         solution: aiResponse.solution,
       })
@@ -89,28 +73,17 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Error inserting problem:', insertError);
-      return NextResponse.json(
-        { success: false, error: 'Failed to save problem' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      return fail('문제 저장에 실패했습니다.', 500);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        problem_id: problem.id,
-        problem_text: aiResponse.problem,
-        created_at: problem.created_at,
-      },
-    } as ApiResponse<typeof data>);
+    // 정답/풀이는 학생에게 내려보내지 않는다
+    return ok({
+      problem_id: problem.id,
+      problem_text: problem.content,
+      source: problem.source,
+      created_at: problem.created_at,
+    });
   } catch (err) {
-    console.error('Error in POST /api/problems/generate:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('POST /api/problems/generate', err);
   }
 }

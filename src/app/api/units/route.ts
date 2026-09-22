@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../lib/supabase/server';
-import type { ApiResponse } from '../../../types';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {

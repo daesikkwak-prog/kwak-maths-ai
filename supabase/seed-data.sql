@@ -7,7 +7,7 @@ INSERT INTO options (type, value, "order") VALUES
   ('grade', '초5', 5),
   ('grade', '초6', 6),
   ('grade', '중1', 7),
-  ('grade', '중2', 8),d
+  ('grade', '중2', 8),
   ('grade', '중3', 9),
   ('grade', '고1', 10),
   ('grade', '고2', 11),

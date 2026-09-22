@@ -1,0 +1,99 @@
+.container {
+  max-width: 900px;
+}
+
+.back {
+  display: inline-block;
+  font-size: 14px;
+  color: #667eea;
+  margin-bottom: 12px;
+}
+
+.container h1 {
+  font-size: 26px;
+  color: #2c3e50;
+  margin-bottom: 20px;
+}
+
+.gradeTag {
+  font-size: 14px;
+  color: #7a8194;
+  font-weight: 400;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.statCard {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.label {
+  font-size: 13px;
+  color: #7a8194;
+}
+
+.value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 6px 0;
+}
+
+.sub {
+  font-size: 12px;
+  color: #9aa0b0;
+}
+
+.section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+}
+
+.section h2 {
+  font-size: 18px;
+  color: #2c3e50;
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 8px;
+  border-bottom: 1px solid #f0f2f7;
+}
+
+.table th {
+  color: #7a8194;
+  font-size: 13px;
+}
+
+.empty {
+  color: #9aa0b0;
+  font-size: 14px;
+}
+
+.error {
+  background: #fdecea;
+  color: #b3261e;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  margin-bottom: 16px;
+}

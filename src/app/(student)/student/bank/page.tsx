@@ -1,53 +1,172 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from '@/lib/hooks/useSession';
 import styles from './Bank.module.css';
+
+interface Option {
+  id: string;
+  value: string;
+}
+
+interface Unit {
+  id: string;
+  name: string;
+  answer_type: string;
+  formula_required: boolean;
+}
 
 export default function ProblemBank() {
   const router = useRouter();
+  const { user, loading: sessionLoading } = useSession();
 
-  const difficulties = [
-    { value: '하', label: '하 (쉬움)', emoji: '😊' },
-    { value: '중', label: '중 (보통)', emoji: '🙂' },
-    { value: '상', label: '상 (어려움)', emoji: '😰' },
-  ];
+  const [grades, setGrades] = useState<Option[]>([]);
+  const [difficulties, setDifficulties] = useState<Option[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
 
-  const handleSelect = (difficulty: string) => {
-    router.push(`/student/solve?difficulty=${difficulty}`);
+  const [gradeId, setGradeId] = useState('');
+  const [unitId, setUnitId] = useState('');
+  const [difficultyId, setDifficultyId] = useState('');
+
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const [gradeRes, diffRes] = await Promise.all([
+        fetch('/api/options?type=grade'),
+        fetch('/api/options?type=difficulty'),
+      ]);
+      const gradeJson = await gradeRes.json();
+      const diffJson = await diffRes.json();
+
+      if (gradeJson.success) setGrades(gradeJson.data || []);
+      if (diffJson.success) setDifficulties(diffJson.data || []);
+    })();
+  }, []);
+
+  // 학생 프로필의 학년을 기본값으로 선택 (변경 가능)
+  useEffect(() => {
+    if (!user || grades.length === 0 || gradeId) return;
+    const myGrade = `${user.school_level}${user.grade}`;
+    const matched = grades.find((g) => g.value === myGrade);
+    if (matched) setGradeId(matched.id);
+  }, [user, grades, gradeId]);
+
+  const loadUnits = useCallback(async (selectedGradeId: string) => {
+    const res = await fetch(`/api/units?grade_option_id=${selectedGradeId}`);
+    const json = await res.json();
+    setUnits(json.success ? json.data || [] : []);
+  }, []);
+
+  useEffect(() => {
+    if (gradeId) {
+      loadUnits(gradeId);
+      setUnitId('');
+    } else {
+      setUnits([]);
+    }
+  }, [gradeId, loadUnits]);
+
+  const handleGenerate = async () => {
+    if (!gradeId || !difficultyId) {
+      setError('학년과 난이도를 선택해주세요.');
+      return;
+    }
+
+    setGenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/problems/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade_option_id: gradeId,
+          unit_id: unitId || null,
+          difficulty_option_id: difficultyId,
+        }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || '문제 생성에 실패했습니다.');
+        return;
+      }
+
+      router.push(`/student/solve?problem_id=${json.data.problem_id}`);
+    } catch {
+      setError('문제 생성에 실패했습니다.');
+    } finally {
+      setGenerating(false);
+    }
   };
+
+  if (sessionLoading) return <div className={styles.container}>로드 중...</div>;
+
+  const selectedUnit = units.find((u) => u.id === unitId);
 
   return (
     <div className={styles.container}>
       <h1>📚 문제은행</h1>
-      <p className={styles.subtitle}>난이도를 선택하고 문제를 풀어보세요</p>
+      <p className={styles.subtitle}>조건을 고르면 AI가 새 문제를 만들어줘요</p>
 
-      <div className={styles.difficultyGrid}>
-        {difficulties.map((diff) => (
-          <button
-            key={diff.value}
-            className={styles.difficultyCard}
-            onClick={() => handleSelect(diff.value)}
+      {error && <div className={styles.error}>{error}</div>}
+
+      <div className={styles.card}>
+        <div className={styles.field}>
+          <label>학년</label>
+          <select value={gradeId} onChange={(e) => setGradeId(e.target.value)}>
+            <option value="">선택하세요</option>
+            {grades.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.value}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className={styles.field}>
+          <label>단원</label>
+          <select
+            value={unitId}
+            onChange={(e) => setUnitId(e.target.value)}
+            disabled={!gradeId}
           >
-            <div className={styles.emoji}>{diff.emoji}</div>
-            <h3>{diff.label}</h3>
-            <p>이 난이도로 시작하기</p>
-          </button>
-        ))}
-      </div>
+            <option value="">{units.length ? '학년 전체 범위' : '등록된 단원 없음'}</option>
+            {units.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </select>
+          {selectedUnit && (
+            <span className={styles.unitHint}>
+              {selectedUnit.answer_type === 'objective' ? '객관식' : '주관식'} ·{' '}
+              {selectedUnit.formula_required ? '풀이 과정 필수' : '답만 써도 인정'}
+            </span>
+          )}
+        </div>
 
-      <div className={styles.tips}>
-        <h2>💡 팁</h2>
-        <ul>
-          <li>
-            <strong>쉬운 문제(하):</strong> 기초 개념을 확인하고 싶을 때
-          </li>
-          <li>
-            <strong>보통 문제(중):</strong> 균형있는 난이도로 실력 점검
-          </li>
-          <li>
-            <strong>어려운 문제(상):</strong> 심화 학습 및 도전적인 문제
-          </li>
-        </ul>
+        <div className={styles.field}>
+          <label>난이도</label>
+          <div className={styles.difficultyRow}>
+            {difficulties.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={d.id === difficultyId ? styles.difficultyActive : styles.difficulty}
+                onClick={() => setDifficultyId(d.id)}
+              >
+                {d.value}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button className={styles.generateBtn} onClick={handleGenerate} disabled={generating}>
+          {generating ? 'AI가 문제를 만드는 중...' : '문제 받기'}
+        </button>
       </div>
     </div>
   );

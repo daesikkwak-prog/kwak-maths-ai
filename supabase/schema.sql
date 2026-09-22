@@ -4,16 +4,19 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Users table
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name VARCHAR(255) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
   role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'admin')),
   school_level VARCHAR(10) NOT NULL CHECK (school_level IN ('초', '중', '고')),
-  grade INT NOT NULL CHECK (grade >= 1 AND grade <= 3),
+  grade INT NOT NULL CHECK (grade >= 1 AND grade <= 6),
+  auth_user_id UUID UNIQUE,
   my_problem_formula_required BOOLEAN NOT NULL DEFAULT true,
   is_active BOOLEAN NOT NULL DEFAULT true,
   deleted_at TIMESTAMP NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 활성 계정 기준으로만 유일 (소프트 삭제된 계정의 이름은 재사용 가능)
+CREATE UNIQUE INDEX idx_users_name_active ON users(name) WHERE deleted_at IS NULL;
 CREATE INDEX idx_users_is_active ON users(is_active);
 CREATE INDEX idx_users_role ON users(role);
 
@@ -24,10 +27,10 @@ CREATE TABLE ai_rules (
   content TEXT NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
   deleted_at TIMESTAMP NULL,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(level, deleted_at)
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE UNIQUE INDEX idx_ai_rules_unique_active ON ai_rules(level) WHERE deleted_at IS NULL;
 CREATE INDEX idx_ai_rules_level ON ai_rules(level, is_active);
 
 -- Options table (선택지: 학년, 난이도)
@@ -37,10 +40,10 @@ CREATE TABLE options (
   value VARCHAR(100) NOT NULL,
   "order" INT NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
-  deleted_at TIMESTAMP NULL,
-  UNIQUE(type, value, deleted_at)
+  deleted_at TIMESTAMP NULL
 );
 
+CREATE UNIQUE INDEX idx_options_unique_active ON options(type, value) WHERE deleted_at IS NULL;
 CREATE INDEX idx_options_type ON options(type, is_active);
 
 -- Units table (단원, 학년 종속)
@@ -65,6 +68,7 @@ CREATE TABLE problems (
   grade_option_id UUID REFERENCES options(id) ON DELETE SET NULL,
   unit_id UUID REFERENCES units(id) ON DELETE SET NULL,
   difficulty_option_id UUID REFERENCES options(id) ON DELETE SET NULL,
+  content TEXT,
   answer TEXT,
   solution TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,

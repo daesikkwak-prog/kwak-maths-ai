@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../../lib/supabase/server';
-import type { ApiResponse } from '../../../../../types';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { requireRole } from '@/lib/auth';
+import { handleError } from '@/lib/api/respond';
+import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
+    await requireRole('admin');
+
     const supabase = await getSupabaseServerClient();
     const searchParams = request.nextUrl.searchParams;
     const gradeOptionId = searchParams.get('grade_option_id');
@@ -28,19 +32,14 @@ export async function GET(request: NextRequest) {
       data,
     } as ApiResponse<typeof data>);
   } catch (err) {
-    console.error('Error in GET /api/admin/units:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('GET /api/admin/units', err);
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await requireRole('admin');
+
     const supabase = await getSupabaseServerClient();
     const body = await request.json();
     const { grade_option_id, name, answer_type, formula_required, order } = body;
@@ -80,13 +79,6 @@ export async function POST(request: NextRequest) {
       data: unit,
     } as ApiResponse<typeof unit>);
   } catch (err) {
-    console.error('Error in POST /api/admin/units:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('POST /api/admin/units', err);
   }
 }

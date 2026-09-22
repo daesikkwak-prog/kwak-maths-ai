@@ -1,11 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import styles from './LoginForm.module.css';
 
-export default function LoginForm() {
+function LoginFormInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,15 +31,16 @@ export default function LoginForm() {
         return;
       }
 
-      // 로그인 성공 후 역할에 따라 리다이렉트
+      // 원래 가려던 화면이 있으면 그곳으로, 없으면 역할별 기본 화면으로 이동
       const role = data.data.role;
-      if (role === 'admin') {
-        router.push('/admin');
-      } else if (role === 'student') {
-        router.push('/student/solve');
-      } else {
-        router.push('/');
-      }
+      const redirect = searchParams.get('redirect');
+      const isAllowed =
+        redirect &&
+        ((role === 'admin' && redirect.startsWith('/admin')) ||
+          (role === 'student' && redirect.startsWith('/student')));
+
+      router.replace(isAllowed ? redirect : role === 'admin' ? '/admin' : '/student/solve');
+      router.refresh();
     } catch (err) {
       setError('서버 오류가 발생했습니다.');
       console.error('Login error:', err);
@@ -104,5 +106,13 @@ export default function LoginForm() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginForm() {
+  return (
+    <Suspense fallback={null}>
+      <LoginFormInner />
+    </Suspense>
   );
 }

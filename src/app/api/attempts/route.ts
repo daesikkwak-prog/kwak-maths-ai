@@ -1,165 +1,133 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../lib/supabase/server';
-import { evaluateAttempt } from '../../../lib/gemini';
-import type { ApiResponse, GeminiResponse } from '../../../types';
+import { NextRequest } from 'next/server';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { evaluateAttempt } from '@/lib/gemini';
+import { requireUser, requireSelfOrAdmin } from '@/lib/auth';
+import { resolveProblemPolicy } from '@/lib/problems/context';
+import { ok, fail, handleError } from '@/lib/api/respond';
+import { MIN_ATTEMPTS_FOR_GIVE_UP } from '@/lib/constants';
+import type { Attempt } from '@/types';
 
+/**
+ * 풀이 이미지 제출 → Gemini 채점/피드백 → attempts 기록.
+ * 제출 이미지는 저장하지 않고, 회차별 텍스트 요약(issue_summary)만 누적한다.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await getSupabaseServerClient();
-    const body = await request.json();
-    const { student_id, problem_id, image_base64 } = body;
+    const student = await requireUser();
 
-    if (!student_id || !problem_id || !image_base64) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'student_id, problem_id, and image_base64 are required',
-        } as ApiResponse<null>,
-        { status: 400 }
-      );
+    const supabase = await getSupabaseServerClient();
+    const { problem_id, image_base64 } = await request.json();
+
+    if (!problem_id || !image_base64) {
+      return fail('문제와 풀이 이미지가 필요합니다.');
     }
 
-    // 문제 정보 조회
-    const { data: problem, error: problemError } = await supabase
-      .from('problems')
+    const { data: problem } = await supabase
+      .from('active_problems')
       .select('*')
       .eq('id', problem_id)
-      .single();
+      .maybeSingle();
 
-    if (problemError || !problem) {
-      return NextResponse.json(
-        { success: false, error: 'Problem not found' } as ApiResponse<null>,
-        { status: 404 }
-      );
-    }
+    if (!problem) return fail('문제를 찾을 수 없습니다.', 404);
 
-    // 기존 시도 조회
     const { data: existingAttempts, error: attemptsError } = await supabase
       .from('attempts')
       .select('*')
-      .eq('student_id', student_id)
+      .eq('student_id', student.id)
       .eq('problem_id', problem_id)
-      .order('attempt_no', { ascending: false });
+      .order('attempt_no', { ascending: true });
 
-    if (attemptsError) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch attempts' } as ApiResponse<null>,
-        { status: 500 }
-      );
+    if (attemptsError) return fail('시도 기록 조회에 실패했습니다.', 500);
+
+    const attempts = (existingAttempts || []) as Attempt[];
+
+    if (attempts.some((a) => a.is_correct || a.gave_up)) {
+      return fail('이미 완료된 문제입니다.');
     }
 
-    const nextAttemptNo = (existingAttempts?.length || 0) + 1;
-
-    // AI 규칙 조회
     const { data: aiRules, error: rulesError } = await supabase
       .from('active_ai_rules')
       .select('*');
 
-    if (rulesError || !aiRules) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch AI rules' } as ApiResponse<null>,
-        { status: 500 }
-      );
-    }
+    if (rulesError || !aiRules) return fail('AI 기준 조회에 실패했습니다.', 500);
 
-    // Gemini로 채점
-    const evaluation = await evaluateAttempt(
-      problem.answer || '',
-      problem.solution || '',
-      image_base64,
-      problem.source === 'ai_generated' ? `문제: 미제공 (AI 생성)` : '사용자 업로드 문제',
-      existingAttempts || [],
-      aiRules
-    );
+    const policy = await resolveProblemPolicy(supabase, problem, student);
 
-    // 시도 기록 저장
+    const evaluation = await evaluateAttempt({
+      problemContent: problem.content || '',
+      answer: problem.answer,
+      solution: problem.solution,
+      formulaRequired: policy.formulaRequired,
+      schoolLevel: policy.schoolLevel,
+      previousAttempts: attempts,
+      aiRules,
+      studentImage: image_base64,
+    });
+
+    const nextAttemptNo = attempts.length + 1;
+
     const { data: attempt, error: insertError } = await supabase
       .from('attempts')
       .insert({
-        student_id,
+        student_id: student.id,
         problem_id,
         attempt_no: nextAttemptNo,
         is_correct: evaluation.is_correct,
         gave_up: false,
         issue_summary: evaluation.issue_summary,
-        final_solution_text: evaluation.is_correct ? evaluation.final_solution_text : null,
+        final_solution_text: evaluation.is_correct
+          ? evaluation.final_solution_text ?? null
+          : null,
       })
       .select()
       .single();
 
     if (insertError) {
       console.error('Error inserting attempt:', insertError);
-      return NextResponse.json(
-        { success: false, error: 'Failed to save attempt' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      return fail('시도 기록 저장에 실패했습니다.', 500);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        attempt_id: attempt.id,
-        attempt_no: attempt.attempt_no,
-        is_correct: attempt.is_correct,
-        issue_summary: attempt.issue_summary,
-        final_solution_text: attempt.final_solution_text,
-        feedback: evaluation.feedback,
-        can_give_up: nextAttemptNo >= 3, // 3회 이상 시도 후 포기 가능
-      },
-    } as ApiResponse<any>);
+    return ok({
+      attempt_id: attempt.id,
+      attempt_no: attempt.attempt_no,
+      is_correct: attempt.is_correct,
+      issue_summary: attempt.issue_summary,
+      final_solution_text: attempt.final_solution_text,
+      feedback: evaluation.feedback,
+      can_give_up: !attempt.is_correct && nextAttemptNo >= MIN_ATTEMPTS_FOR_GIVE_UP,
+    });
   } catch (err) {
-    console.error('Error in POST /api/attempts:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('POST /api/attempts', err);
   }
 }
 
+/** 특정 문제의 시도 기록 조회. 학생은 본인 기록만 볼 수 있다. */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await getSupabaseServerClient();
     const searchParams = request.nextUrl.searchParams;
     const problemId = searchParams.get('problem_id');
-    const studentId = searchParams.get('student_id');
+    const requestedStudentId = searchParams.get('student_id');
 
-    if (!problemId) {
-      return NextResponse.json(
-        { success: false, error: 'problem_id is required' } as ApiResponse<null>,
-        { status: 400 }
-      );
-    }
+    if (!problemId) return fail('problem_id는 필수입니다.');
 
-    let query = supabase.from('attempts').select('*').eq('problem_id', problemId);
+    // student_id 미지정 시 본인 기록. 지정 시 본인 또는 관리자만 조회 가능.
+    const user = requestedStudentId
+      ? await requireSelfOrAdmin(requestedStudentId)
+      : await requireUser();
+    const studentId = requestedStudentId || user.id;
 
-    if (studentId) {
-      query = query.eq('student_id', studentId);
-    }
+    const supabase = await getSupabaseServerClient();
+    const { data, error } = await supabase
+      .from('attempts')
+      .select('*')
+      .eq('problem_id', problemId)
+      .eq('student_id', studentId)
+      .order('attempt_no', { ascending: true });
 
-    const { data, error } = await query.order('attempt_no', { ascending: true });
+    if (error) return fail('시도 기록 조회에 실패했습니다.', 500);
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch attempts' } as ApiResponse<null>,
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data,
-    } as ApiResponse<typeof data>);
+    return ok(data);
   } catch (err) {
-    console.error('Error in GET /api/attempts:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('GET /api/attempts', err);
   }
 }

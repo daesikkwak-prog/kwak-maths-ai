@@ -31,3 +31,6 @@ yarn-debug.log*
 
 # Backup
 .backup_*/
+
+# Build output
+dist/

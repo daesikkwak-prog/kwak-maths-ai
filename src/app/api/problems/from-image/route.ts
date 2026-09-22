@@ -1,29 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseServerClient } from '../../../../lib/supabase/server';
-import { parseUserUploadedProblem } from '../../../../lib/gemini';
-import type { ApiResponse } from '../../../../types';
+import { NextRequest } from 'next/server';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { parseUserUploadedProblem } from '@/lib/gemini';
+import { requireUser } from '@/lib/auth';
+import { ok, fail, handleError } from '@/lib/api/respond';
 
+/**
+ * "내 문제 풀기": 문제집 사진 → 문제 본문 추출 후 저장 (source=user_uploaded).
+ * 정답은 미리 알 수 없으므로 채점은 매 시도마다 AI가 즉석에서 수행한다.
+ * 제출 이미지는 저장하지 않는다.
+ */
 export async function POST(request: NextRequest) {
   try {
+    await requireUser();
+
     const supabase = await getSupabaseServerClient();
-    const body = await request.json();
-    const { image_base64 } = body;
+    const { image_base64 } = await request.json();
 
     if (!image_base64) {
-      return NextResponse.json(
-        { success: false, error: 'image_base64 is required' } as ApiResponse<null>,
-        { status: 400 }
-      );
+      return fail('문제 사진을 업로드해주세요.');
     }
 
-    // Gemini로 이미지에서 문제 텍스트 추출
     const problemText = await parseUserUploadedProblem(image_base64);
 
-    // 문제 저장 (정답 없음)
     const { data: problem, error: insertError } = await supabase
       .from('problems')
       .insert({
         source: 'user_uploaded',
+        content: problemText,
         answer: null,
         solution: null,
       })
@@ -32,28 +35,16 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Error saving problem:', insertError);
-      return NextResponse.json(
-        { success: false, error: 'Failed to save problem' } as ApiResponse<null>,
-        { status: 500 }
-      );
+      return fail('문제 저장에 실패했습니다.', 500);
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        problem_id: problem.id,
-        problem_text: problemText,
-        created_at: problem.created_at,
-      },
-    } as ApiResponse<typeof data>);
+    return ok({
+      problem_id: problem.id,
+      problem_text: problem.content,
+      source: problem.source,
+      created_at: problem.created_at,
+    });
   } catch (err) {
-    console.error('Error in POST /api/problems/from-image:', err);
-    return NextResponse.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'Internal server error',
-      } as ApiResponse<null>,
-      { status: 500 }
-    );
+    return handleError('POST /api/problems/from-image', err);
   }
 }

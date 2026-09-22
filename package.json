@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "seed": "tsx scripts/seed-database.ts",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "typecheck": "tsc --noEmit",
+    "check-db": "tsx scripts/check-db.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.12.0",

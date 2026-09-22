@@ -68,36 +68,46 @@
 - [x] RLS 비활성화 (개발용)
 - [x] 초기 데이터 로드 (옵션, AI 규칙) via seed-database.ts
 
-### 4단계: 인증 API
-- [ ] Supabase Auth 연동
-- [ ] 로그인/로그아웃 API
-- [ ] 관리자 계정 생성 API
+### 4단계: 인증 API ✅
+- [x] Supabase Auth 연동 (관리자가 계정 생성 시 Auth 계정 동시 생성)
+- [x] 로그인/로그아웃 API (실제 비밀번호 검증)
+- [x] 세션 쿠키 + `/api/auth/me`
+- [x] 미들웨어 기반 화면 접근 제어 (`src/middleware.ts`)
+- [x] API 라우트별 권한 검증 (`requireUser` / `requireRole` / `requireSelfOrAdmin`)
 
-### 5단계: 핵심 기능 API
-- [ ] 선택지 조회 API (GET /api/options)
-- [ ] 단원 조회 API (GET /api/units)
-- [ ] 문제 생성 API (POST /api/problems/generate)
-- [ ] 풀이 제출/채점 API (POST /api/attempts)
-- [ ] 포기 처리 API (POST /api/problems/:id/give-up)
-- [ ] 내 문제 풀기 API (POST /api/problems/from-image)
+### 5단계: 핵심 기능 API ✅
+- [x] 선택지 조회 (GET /api/options)
+- [x] 단원 조회 (GET /api/units)
+- [x] 문제 생성 (POST /api/problems/generate) — 문제 본문·정답·풀이 고정 저장
+- [x] 문제 조회 (GET /api/problems/:id)
+- [x] 풀이 제출/채점 (POST /api/attempts) — 식 필수 여부/레벨별 기준 반영
+- [x] 시도 기록 조회 (GET /api/attempts?problem_id=)
+- [x] 포기 처리 (POST /api/problems/:id/give-up) — 3회 이상 검증
+- [x] 내 문제 풀기 (POST /api/problems/from-image)
 
-### 6단계: 관리자 API
-- [ ] AI 기준 관리 API
-- [ ] 사용자 관리 API
-- [ ] 단원 관리 API
-- [ ] 통계 조회 API
+### 6단계: 관리자 API ✅
+- [x] AI 기준 관리 (GET/PATCH)
+- [x] 사용자 관리 (GET/POST/PATCH/DELETE, 비밀번호 설정·변경 포함)
+- [x] 단원 관리 (GET/POST/PATCH/DELETE)
+- [x] 선택지 관리 (GET/POST/PATCH/DELETE)
+- [x] 학생별 통계/기록 조회 (/api/admin/students/:id/stats, /history)
 
-### 7단계: 프론트엔드 화면
-- [ ] 관리자 화면 (AI 기준, 사용자, 단원 관리)
-- [ ] 학생 - 문제풀이 (캔버스, 업로드, AI 피드백)
-- [ ] 학생 - 문제은행
-- [ ] 학생 - 내 문제 풀기
-- [ ] 학생 - 공부기록
+### 7단계: 프론트엔드 화면 ✅
+- [x] 로그인 (redirect 파라미터 지원)
+- [x] 관리자 - 대시보드 / AI 기준 / 사용자 / 단원
+- [x] 관리자 - 학생별 공부기록 (목록 + 상세)
+- [x] 학생 - 문제은행 (학년 기본값 + 단원/난이도 선택)
+- [x] 학생 - 문제풀이 (S펜 캔버스 + 사진 업로드, 이미지 압축, AI 피드백, 포기 모달)
+- [x] 학생 - 내 문제 풀기 (문제풀이 화면 내 진입점)
+- [x] 학생 - 공부기록 (통계 + 정답률 추이 그래프 + 문제별 상세 기록)
 
 ### 8단계: 마무리
-- [ ] 전체 기능 통합 테스트
-- [ ] Vercel 배포
-- [ ] 실 기기 테스트
+- [x] 학습시간 세션 시작/종료 로직 (문제풀이 화면 체류 시간 기준)
+- [x] 빌드/타입체크 통과
+- [ ] **DB 마이그레이션 001/002 적용** (Supabase SQL Editor에서 수동 실행 필요)
+- [ ] 관리자 계정 생성 후 전체 기능 통합 테스트
+- [ ] Vercel 배포 및 환경변수 설정
+- [ ] 실 기기(갤럭시탭 + S펜) 캔버스 입력 테스트
 
 ---
 
@@ -134,3 +144,37 @@
   - AI Rules: common, 초, 중, 고 = 4개
 - Dev 서버 실행 중 (localhost:3000)
 - 다음: API Routes 구현 시작
+
+### 2026-09-22 (구현 점검 및 누락 기능 보완)
+
+개발 상태를 점검한 결과 빌드가 깨져 있고 핵심 기능이 미구현이라 다음을 보완:
+
+**빌드/타입**
+- 모든 상대경로 import를 `@/` 별칭으로 교체 (존재하지 않는 경로로 19개 파일 컴파일 실패 상태였음)
+- `typeof data` 참조 오류, `@supabase/auth-helpers-nextjs`의 없는 export 사용 수정
+- `npx tsc --noEmit` / `next build` 통과 확인
+
+**DB**
+- `problems.content` 컬럼 추가 — 문제 본문을 저장하지 않아 문제를 다시 보여줄 수 없고 채점 컨텍스트도 비어 있었음
+- `users.auth_user_id` 추가 (Supabase Auth 연결)
+- `users.grade` 제약 1~3 → 1~6 (초등 4~6학년 계정 생성 불가 버그)
+- 부분 유니크 인덱스로 교체 — `UNIQUE(..., deleted_at)`는 NULL 중복을 막지 못해 시드 중복 75건 발생, `scripts/dedupe-options.ts`로 정리
+
+**인증**
+- 로그인이 비밀번호를 검증하지 않던 문제 해결 (Supabase Auth `signInWithPassword`)
+- 계정 생성 시 Auth 계정 동시 생성, 관리자만 비밀번호 설정/변경
+- 미들웨어 + 라우트별 권한 검증 추가. 학생은 타인 기록 조회 불가
+
+**기능**
+- 프론트엔드의 하드코딩된 `student_id: 'test-student-001'` 제거 → 실제 세션 사용
+- S펜 필기 캔버스 구현 (설계상 주 입력 방식인데 미구현이었음)
+- 전송 전 이미지 압축 적용 (`compressImage` 유틸이 있었으나 호출되지 않았음)
+- 포기하기 버튼 + 확인 모달, 내 문제 풀기 진입점, 문제 본문 표시 추가
+- 학습시간 세션 시작/종료를 화면에 연결 (기록이 항상 0이었음)
+- 통계를 시도 단위 → 문제 단위로 수정, 정답률 추이 그래프·문제별 상세 기록 추가
+- 관리자용 학생별 공부기록 화면 신규 구현
+
+**외부 연동**
+- Gemini 모델 `gemini-2.0-flash` 단종(404) 확인 → `gemini-3.6-flash`로 교체, `GEMINI_MODEL` 환경변수로 재정의 가능
+
+**남은 일**: Supabase SQL Editor에서 마이그레이션 001·002 실행 → `npm run check-db` → 관리자 계정 생성 → 통합 테스트

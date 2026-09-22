@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LogoutButton from '@/components/common/LogoutButton';
 import styles from './AdminLayout.module.css';
 
 export default function AdminLayout({
@@ -33,9 +34,7 @@ export default function AdminLayout({
         </nav>
 
         <div className={styles.footer}>
-          <Link href="/" className={styles.logout}>
-            🚪 로그아웃
-          </Link>
+          <LogoutButton className={styles.logout} />
         </div>
       </aside>
 
