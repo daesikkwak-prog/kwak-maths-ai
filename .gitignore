@@ -34,3 +34,4 @@ yarn-debug.log*
 
 # Build output
 dist/
+tsconfig.tsbuildinfo
