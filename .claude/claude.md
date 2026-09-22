@@ -125,12 +125,14 @@
 - [ ] 포기하기 3회 충족 후 해설 생성 (3회 미만 차단은 검증 완료)
 - [ ] 학습시간 기록 (탭 전환/이탈 기준이라 브라우저 실사용 확인 필요)
 
-### 3. 배포
-- [x] 프로덕션 빌드/구동 검증 (next build + next start, 로그인·Secure 쿠키 동작 확인)
-- [x] 환경변수 등록 스크립트 및 배포 절차 문서화 (`scripts/setup-vercel-env.sh`, SETUP_GUIDE 6장)
-- [ ] `npx vercel login` — 브라우저 인증이 필요해 사용자가 직접 수행
-- [ ] `npx vercel link` → `./scripts/setup-vercel-env.sh` → `npx vercel --prod`
-- [ ] 배포 후 /api/health, 관리자 로그인, 문제 출제 1건 확인
+### 3. 배포 ✅
+- [x] 프로덕션 빌드/구동 검증 (next build + next start, Secure 쿠키 동작 확인)
+- [x] Vercel 프로젝트 연결 (`kwakpam/kwak_maths_ai`)
+- [x] 환경변수 4개 등록 (NEXT_PUBLIC_* = Config, 서버 키 = Secret, 3개 환경 모두)
+- [x] 프로덕션 배포 — **https://kwakmathsai.vercel.app**
+- [x] 배포본 검증 (health, 미인증 차단, 관리자 로그인, Gemini 출제 1건)
+- [ ] GitHub 자동 배포 연결 — Vercel GitHub App 미설치로 `vercel git connect` 실패.
+      대시보드 Settings → Git에서 연결하면 푸시 시 자동 배포. 그 전에는 `npx vercel --prod --yes`로 수동 배포
 
 ### 4. 설계에 있으나 화면이 없던 것
 - [x] 단원 수정/삭제 화면 (API만 있고 화면은 등록·목록뿐이었음)
@@ -216,3 +218,14 @@
 - Gemini 모델 `gemini-2.0-flash` 단종(404) 확인 → `gemini-3.6-flash`로 교체, `GEMINI_MODEL` 환경변수로 재정의 가능
 
 **남은 일**: Supabase SQL Editor에서 마이그레이션 001·002 실행 → `npm run check-db` → 관리자 계정 생성 → 통합 테스트
+
+### 2026-09-22 (배포)
+
+- 잔재 정리(백업 디렉터리, /api/test, 중복 seed-data.sql) 및 누락 화면 보완
+  (단원 수정/삭제, 선택지 관리, 이어풀기 진입점) 후 커밋·푸시
+- Vercel 배포 완료: https://kwakmathsai.vercel.app
+  - 처음 `vercel link`가 이전 팀명으로 프로젝트를 만들어 삭제 후 `kwakpam` 스코프로 재연결
+  - `vercel env add`가 자격증명처럼 보이는 값에서 프롬프트를 띄워 멈추는 문제 →
+    `--value` + 다중 환경 + `--force --yes` 방식으로 스크립트 수정 (호출 12회 → 4회)
+  - CLI가 중복 환경변수를 삭제하지 못해(multiple_envs) REST API로 정리
+- 배포본에서 관리자 로그인 및 Gemini 출제까지 정상 동작 확인

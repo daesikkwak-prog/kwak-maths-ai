@@ -53,19 +53,39 @@ npm run typecheck
 
 ## 6. Vercel 배포
 
+**배포 주소: https://kwakmathsai.vercel.app** (Vercel 팀 `kwakpam`, 프로젝트 `kwak_maths_ai`)
+
+### 재배포
+
 ```bash
-npx vercel login              # 브라우저 인증 (최초 1회)
-npx vercel link               # GitHub 저장소와 Vercel 프로젝트 연결
-./scripts/setup-vercel-env.sh # .env.local 값을 Vercel 환경변수로 등록
-npx vercel --prod             # 프로덕션 배포
+npx vercel --prod --yes
 ```
 
-배포 후 확인:
-- `https://<도메인>/api/health` 응답 확인
-- 관리자 로그인 (세션 쿠키가 `Secure` 속성이라 HTTPS에서만 동작 — Vercel은 기본 HTTPS)
+### 최초 세팅 / 다른 환경에서 다시 할 때
+
+```bash
+npx vercel login
+npx vercel link --yes --scope kwakpam
+./scripts/setup-vercel-env.sh   # .env.local 값을 production/preview/development에 등록
+npx vercel --prod --yes
+```
+
+`NEXT_PUBLIC_*`은 Config(평문), 서버 전용 키는 Secret으로 저장됩니다.
+
+> `SUPABASE_SERVICE_ROLE_KEY`에는 `NEXT_PUBLIC_` 접두사를 붙이지 마세요. 붙이면 브라우저로 노출돼 DB 전체 권한이 새어나갑니다.
+
+### 배포 후 확인 항목
+
+- `https://kwakmathsai.vercel.app/api/health` → `{"success":true,...}`
+- 관리자 로그인 (세션 쿠키가 `Secure`라 HTTPS에서만 동작 — Vercel은 기본 HTTPS)
 - 문제은행에서 문제 출제 1건 (Gemini 키가 프로덕션에 반영됐는지 확인)
 
-> `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용입니다. `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출되니 절대 바꾸지 마세요.
+### GitHub 자동 배포 (미연결)
+
+`npx vercel git connect`가 실패합니다 — Vercel의 GitHub App이 `daesikkwak-prog/kwak-maths-ai`에
+설치돼 있지 않기 때문입니다. 푸시할 때마다 자동 배포를 원하면
+vercel.com → 프로젝트 → Settings → Git에서 저장소를 연결하세요.
+연결 전에는 위 `npx vercel --prod --yes`로 수동 배포합니다.
 
 ## 유용한 스크립트
 

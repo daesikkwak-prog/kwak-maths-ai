@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # .env.local의 값을 Vercel 프로젝트 환경변수로 등록한다.
-# 사전 조건: npx vercel login 완료, npx vercel link 로 프로젝트 연결 완료
+# 사전 조건: npx vercel login, npx vercel link 완료
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -10,9 +10,16 @@ if [ ! -f .env.local ]; then
   exit 1
 fi
 
-VARS=(NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY GEMINI_API_KEY)
+# NEXT_PUBLIC_*은 브라우저에 노출되는 값이므로 Config(평문),
+# 서버 전용 키는 Secret으로 저장한다.
+declare -A SENSITIVITY=(
+  [NEXT_PUBLIC_SUPABASE_URL]=--no-sensitive
+  [NEXT_PUBLIC_SUPABASE_ANON_KEY]=--no-sensitive
+  [SUPABASE_SERVICE_ROLE_KEY]=--sensitive
+  [GEMINI_API_KEY]=--sensitive
+)
 
-for name in "${VARS[@]}"; do
+for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY GEMINI_API_KEY; do
   value=$(grep -E "^${name}=" .env.local | head -1 | cut -d= -f2- | tr -d '\r')
 
   if [ -z "$value" ]; then
@@ -20,14 +27,12 @@ for name in "${VARS[@]}"; do
     continue
   fi
 
-  for env in production preview development; do
-    # 이미 등록돼 있으면 지우고 다시 넣는다 (값 변경 대응)
-    npx vercel env rm "$name" "$env" --yes >/dev/null 2>&1 || true
-    printf '%s' "$value" | npx vercel env add "$name" "$env" >/dev/null
-  done
+  npx vercel env add "$name" production,preview,development \
+    --value "$value" "${SENSITIVITY[$name]}" --force --yes >/dev/null 2>&1
 
-  echo "✅ ${name} 등록 완료 (production/preview/development)"
+  echo "✅ ${name} 등록 완료"
 done
 
 echo ""
-echo "다음: npx vercel --prod"
+echo "등록 확인: npx vercel env ls"
+echo "배포:      npx vercel --prod"
