@@ -126,9 +126,11 @@
 - [ ] 학습시간 기록 (탭 전환/이탈 기준이라 브라우저 실사용 확인 필요)
 
 ### 3. 배포
-- [ ] Vercel 프로젝트 연결
-- [ ] 환경변수 등록 (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY)
-- [ ] 프로덕션 secure 쿠키 동작 확인
+- [x] 프로덕션 빌드/구동 검증 (next build + next start, 로그인·Secure 쿠키 동작 확인)
+- [x] 환경변수 등록 스크립트 및 배포 절차 문서화 (`scripts/setup-vercel-env.sh`, SETUP_GUIDE 6장)
+- [ ] `npx vercel login` — 브라우저 인증이 필요해 사용자가 직접 수행
+- [ ] `npx vercel link` → `./scripts/setup-vercel-env.sh` → `npx vercel --prod`
+- [ ] 배포 후 /api/health, 관리자 로그인, 문제 출제 1건 확인
 
 ### 4. 설계에 있으나 화면이 없던 것
 - [x] 단원 수정/삭제 화면 (API만 있고 화면은 등록·목록뿐이었음)
