@@ -1,0 +1,113 @@
+.container {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+h1 {
+  font-size: 28px;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+
+.subtitle {
+  color: #7f8c8d;
+  font-size: 16px;
+  margin: 0 0 40px 0;
+}
+
+.difficultyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.difficultyCard {
+  background: white;
+  border: 2px solid #ecf0f1;
+  border-radius: 12px;
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-family: inherit;
+}
+
+.difficultyCard:hover {
+  border-color: #667eea;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+  transform: translateY(-5px);
+}
+
+.emoji {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.difficultyCard h3 {
+  font-size: 18px;
+  color: #2c3e50;
+  margin: 0 0 10px 0;
+}
+
+.difficultyCard p {
+  color: #7f8c8d;
+  font-size: 14px;
+  margin: 0;
+}
+
+.tips {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tips h2 {
+  font-size: 20px;
+  color: #2c3e50;
+  margin: 0 0 20px 0;
+}
+
+.tips ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.tips li {
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-left: 4px solid #667eea;
+  border-radius: 6px;
+}
+
+.tips strong {
+  color: #2c3e50;
+}
+
+.tips li:nth-child(2) {
+  border-left-color: #f39c12;
+}
+
+.tips li:nth-child(3) {
+  border-left-color: #e74c3c;
+}
+
+@media (max-width: 768px) {
+  .difficultyGrid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 24px;
+  }
+
+  .emoji {
+    font-size: 40px;
+  }
+}
