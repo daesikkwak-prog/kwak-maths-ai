@@ -3,7 +3,19 @@
     "allow": [
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "Bash(mv backend *)",
+      "Bash(mv frontend *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm list *)",
+      "Bash(npx next *)",
+      "Bash(npm ci *)",
+      "Bash(./node_modules/.bin/next *)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl *)",
+      "Bash(python3 -m json.tool)",
+      "Bash(npx tsx *)"
     ]
   }
 }
