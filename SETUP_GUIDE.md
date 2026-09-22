@@ -51,6 +51,22 @@ npm run typecheck
 4. **사용자 관리**에서 학생 계정 생성 (사용자명 + 비밀번호 + 학교급/학년 + 식 필수 여부)
 5. 학생 계정으로 로그인 → 문제은행에서 문제를 받아 풀이 제출
 
+## 6. Vercel 배포
+
+```bash
+npx vercel login              # 브라우저 인증 (최초 1회)
+npx vercel link               # GitHub 저장소와 Vercel 프로젝트 연결
+./scripts/setup-vercel-env.sh # .env.local 값을 Vercel 환경변수로 등록
+npx vercel --prod             # 프로덕션 배포
+```
+
+배포 후 확인:
+- `https://<도메인>/api/health` 응답 확인
+- 관리자 로그인 (세션 쿠키가 `Secure` 속성이라 HTTPS에서만 동작 — Vercel은 기본 HTTPS)
+- 문제은행에서 문제 출제 1건 (Gemini 키가 프로덕션에 반영됐는지 확인)
+
+> `SUPABASE_SERVICE_ROLE_KEY`는 서버 전용입니다. `NEXT_PUBLIC_` 접두사를 붙이면 브라우저에 노출되니 절대 바꾸지 마세요.
+
 ## 유용한 스크립트
 
 | 명령 | 설명 |
@@ -61,6 +77,7 @@ npm run typecheck
 | `npx tsx scripts/test-gemini.ts` | Gemini API Key·모델 연결 확인 |
 | `curl localhost:3000/api/health` | 서버 동작 확인 |
 | `npx tsx scripts/dedupe-options.ts` | 중복 선택지/AI기준 정리 |
+| `./scripts/setup-vercel-env.sh` | Vercel 환경변수 일괄 등록 |
 
 ## 문제 해결
 
