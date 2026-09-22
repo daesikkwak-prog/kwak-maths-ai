@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SolutionCanvas, { SolutionCanvasHandle } from '@/components/student/SolutionCanvas';
 import ConfirmGiveUpModal from '@/components/student/ConfirmGiveUpModal';
+import InProgressList from '@/components/student/InProgressList';
 import { useSession } from '@/lib/hooks/useSession';
 import { useStudySession } from '@/lib/hooks/useStudySession';
 import { compressImage, fileToBase64, validateImageFile } from '@/lib/utils/image';
@@ -256,12 +257,15 @@ function SolvePageInner() {
       {error && <div className={styles.error}>{error}</div>}
 
       {!problemId ? (
-        <div className={styles.emptyState}>
-          <p>풀 문제가 없어요.</p>
-          <p className={styles.emptyHint}>
-            문제은행에서 새 문제를 받거나, 문제집 사진을 올려 &quot;내 문제 풀기&quot;를 시작하세요.
-          </p>
-        </div>
+        <>
+          <div className={styles.emptyState}>
+            <p>풀 문제가 없어요.</p>
+            <p className={styles.emptyHint}>
+              문제은행에서 새 문제를 받거나, 문제집 사진을 올려 &quot;내 문제 풀기&quot;를 시작하세요.
+            </p>
+          </div>
+          <InProgressList />
+        </>
       ) : loadingProblem ? (
         <div className={styles.emptyState}>문제를 불러오는 중...</div>
       ) : (

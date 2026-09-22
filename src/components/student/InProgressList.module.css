@@ -1,0 +1,51 @@
+.wrapper {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.wrapper h3 {
+  font-size: 16px;
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+
+.list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list button {
+  width: 100%;
+  text-align: left;
+  background: #f7f9fc;
+  border: 1px solid #eceef5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.list button:hover {
+  border-color: #c7cdf5;
+}
+
+.preview {
+  font-size: 14px;
+  color: #2c3e50;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: #9aa0b0;
+}

@@ -107,6 +107,11 @@ export default function AdminDashboard() {
             <p>학년별 단원 관리</p>
           </Link>
 
+          <Link href="/admin/options" className={styles.linkCard}>
+            <h4>🏷️ 선택지 관리</h4>
+            <p>학년 · 난이도 목록 관리</p>
+          </Link>
+
           <Link href="/admin/students" className={styles.linkCard}>
             <h4>📈 학생 기록</h4>
             <p>학생별 학습 통계 조회</p>

@@ -59,6 +59,7 @@ npm run typecheck
 | `npm run check-db` | 마이그레이션/데이터/계정 점검 |
 | `npm run create-admin -- <아이디> <비번>` | 관리자 생성 또는 비밀번호 재설정 |
 | `npx tsx scripts/test-gemini.ts` | Gemini API Key·모델 연결 확인 |
+| `curl localhost:3000/api/health` | 서버 동작 확인 |
 | `npx tsx scripts/dedupe-options.ts` | 중복 선택지/AI기준 정리 |
 
 ## 문제 해결

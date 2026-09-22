@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import InProgressList from '@/components/student/InProgressList';
 import { useSession } from '@/lib/hooks/useSession';
 import styles from './Bank.module.css';
 
@@ -112,6 +113,10 @@ export default function ProblemBank() {
       <p className={styles.subtitle}>조건을 고르면 AI가 새 문제를 만들어줘요</p>
 
       {error && <div className={styles.error}>{error}</div>}
+
+      <div className={styles.inProgress}>
+        <InProgressList />
+      </div>
 
       <div className={styles.card}>
         <div className={styles.field}>

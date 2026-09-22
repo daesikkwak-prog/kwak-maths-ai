@@ -222,3 +222,24 @@
     align-items: flex-start;
   }
 }
+
+.cardActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.cardActions button {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #dfe3ec;
+  background: #fff;
+  font-size: 13px;
+  color: #2c3e50;
+}
+
+.cardActions .danger {
+  color: #d9534f;
+  border-color: #e6c4c2;
+}

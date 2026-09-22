@@ -28,6 +28,9 @@ export default function AdminLayout({
           <Link href="/admin/units" className={styles.navItem}>
             📚 단원 관리
           </Link>
+          <Link href="/admin/options" className={styles.navItem}>
+            🏷️ 선택지 관리
+          </Link>
           <Link href="/admin/students" className={styles.navItem}>
             📈 학생 기록
           </Link>
