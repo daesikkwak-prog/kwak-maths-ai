@@ -45,12 +45,20 @@ export async function POST(request: NextRequest) {
 
     const supabase = await getSupabaseServerClient();
 
+    // 소프트 삭제된 계정도 Auth 계정과 이름을 계속 점유하므로 함께 확인한다
     const { data: duplicate } = await supabase
       .from('users')
-      .select('id')
+      .select('id, deleted_at')
       .eq('name', name)
       .maybeSingle();
-    if (duplicate) return fail('이미 사용 중인 사용자명입니다.');
+
+    if (duplicate) {
+      return fail(
+        duplicate.deleted_at
+          ? '삭제된 계정이 같은 사용자명을 사용 중입니다. 다른 이름을 입력하세요.'
+          : '이미 사용 중인 사용자명입니다.'
+      );
+    }
 
     const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
       email: usernameToEmail(name),
@@ -61,7 +69,10 @@ export async function POST(request: NextRequest) {
 
     if (authError || !authUser?.user) {
       console.error('Error creating auth user:', authError);
-      return fail('인증 계정 생성에 실패했습니다.', 500);
+      return fail(
+        `인증 계정 생성에 실패했습니다.${authError?.message ? ` (${authError.message})` : ''}`,
+        500
+      );
     }
 
     const { data: user, error } = await supabase

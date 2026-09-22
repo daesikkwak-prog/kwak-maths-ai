@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { cookies } from 'next/headers';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import type { User, UserRole } from '@/types';
@@ -9,8 +10,18 @@ import type { User, UserRole } from '@/types';
 export const AUTH_EMAIL_DOMAIN = 'kwak-maths.local';
 
 export function usernameToEmail(username: string): string {
-  const normalized = username.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '_');
-  return `${normalized}@${AUTH_EMAIL_DOMAIN}`;
+  const lower = username.trim().toLowerCase();
+  const normalized = lower.replace(/[^a-z0-9._-]/g, '_');
+
+  // 이메일에 쓸 수 없는 문자가 없으면 사용자명을 그대로 쓴다
+  if (normalized === lower) {
+    return `${normalized}@${AUTH_EMAIL_DOMAIN}`;
+  }
+
+  // 한글 이름 등은 치환만 하면 서로 같은 주소가 되어 충돌하므로(예: '곽민준'·'곽민서' → '___')
+  // 원본 이름의 해시를 덧붙여 유효하면서 고유한 주소를 만든다
+  const hash = createHash('sha256').update(username.trim()).digest('hex').slice(0, 16);
+  return `${normalized}-${hash}@${AUTH_EMAIL_DOMAIN}`;
 }
 
 export const SESSION_COOKIE = 'user_id';

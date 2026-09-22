@@ -29,9 +29,17 @@ export async function POST(request: NextRequest) {
       return fail('사용자명 또는 비밀번호가 올바르지 않습니다.', 401);
     }
 
+    // Auth 계정의 실제 이메일을 조회해서 쓴다.
+    // 사용자명 → 이메일 변환 규칙이 바뀌어도 기존 계정이 로그인 불가가 되지 않도록.
+    let email = usernameToEmail(user.name);
+    if (user.auth_user_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(user.auth_user_id);
+      if (authUser?.user?.email) email = authUser.user.email;
+    }
+
     // Supabase Auth로 실제 비밀번호 검증
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(user.name),
+      email,
       password,
     });
 

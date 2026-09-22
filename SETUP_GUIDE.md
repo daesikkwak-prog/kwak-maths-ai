@@ -29,6 +29,7 @@ Supabase 대시보드 → SQL Editor에서 **순서대로** 실행합니다.
 ```bash
 npm install
 npm run seed                                   # 학년/난이도 선택지, AI 기준 기본값
+npx tsx scripts/seed-units.ts                  # 초1~고3 교육과정 단원
 npx tsx scripts/create-admin.ts admin 비밀번호   # 최초 관리자 계정 (학생 계정은 관리자 화면에서 생성)
 npm run check-db                               # 스키마/데이터/계정 상태 점검
 ```
@@ -96,6 +97,9 @@ vercel.com → 프로젝트 → Settings → Git에서 저장소를 연결하세
 | `npm run create-admin -- <아이디> <비번>` | 관리자 생성 또는 비밀번호 재설정 |
 | `npx tsx scripts/test-gemini.ts` | Gemini API Key·모델 연결 확인 |
 | `curl localhost:3000/api/health` | 서버 동작 확인 |
+| `npx tsx scripts/seed-units.ts` | 초1~고3 교육과정 단원 시드 |
+| `npx tsx scripts/check-units.ts` | 학년별 등록 단원 확인 |
+| `npx tsx scripts/fix-unit-order.ts` | 단원 표시 순서를 교육과정 순서로 재정렬 |
 | `npx tsx scripts/dedupe-options.ts` | 중복 선택지/AI기준 정리 |
 | `./scripts/setup-vercel-env.sh` | Vercel 환경변수 일괄 등록 |
 
@@ -107,3 +111,5 @@ vercel.com → 프로젝트 → Settings → Git에서 저장소를 연결하세
 | 문제 생성 시 저장 실패 | `problems.content` 컬럼 누락 → 마이그레이션 001 실행 |
 | Gemini 404 (`model is no longer available`) | 모델 단종. `GEMINI_MODEL` 환경변수로 최신 모델 지정 |
 | 선택지가 중복 표시됨 | `npx tsx scripts/dedupe-options.ts` 실행 후 마이그레이션 002 적용 |
+| 계정 생성 시 "삭제된 계정이 같은 사용자명을 사용 중입니다" | 소프트 삭제된 계정이 이름과 Auth 계정을 계속 점유합니다. 다른 이름을 쓰세요 |
+| 단원 목록이 비어 있음 | `npx tsx scripts/seed-units.ts` (초1~고3 교육과정 단원 121개) |

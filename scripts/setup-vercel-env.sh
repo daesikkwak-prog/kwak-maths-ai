@@ -17,9 +17,11 @@ declare -A SENSITIVITY=(
   [NEXT_PUBLIC_SUPABASE_ANON_KEY]=--no-sensitive
   [SUPABASE_SERVICE_ROLE_KEY]=--sensitive
   [GEMINI_API_KEY]=--sensitive
+  [GEMINI_MODEL]=--no-sensitive
 )
 
-for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY GEMINI_API_KEY; do
+# GEMINI_MODEL은 선택 항목 — .env.local에 없으면 건너뛰고 코드 기본값을 쓴다
+for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY GEMINI_API_KEY GEMINI_MODEL; do
   value=$(grep -E "^${name}=" .env.local | head -1 | cut -d= -f2- | tr -d '\r')
 
   if [ -z "$value" ]; then
