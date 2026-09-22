@@ -15,7 +15,12 @@
       "Bash(curl -s http://localhost:3000/api/health)",
       "Bash(curl *)",
       "Bash(python3 -m json.tool)",
-      "Bash(npx tsx *)"
+      "Bash(npx tsx *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(pkill -9 -f \"next dev\")"
     ]
   }
 }

@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import type { GeminiResponse, AIRule, Problem, Attempt } from '@/types';
+import type { GeminiResponse, AIRule, Problem, Attempt } from '../../types';
 
 const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
