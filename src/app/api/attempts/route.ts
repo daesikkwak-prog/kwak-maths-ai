@@ -7,6 +7,9 @@ import { ok, fail, handleError } from '@/lib/api/respond';
 import { MIN_ATTEMPTS_FOR_GIVE_UP } from '@/lib/constants';
 import type { Attempt } from '@/types';
 
+// Gemini 호출이 20~50초까지 걸려 기본 제한(10초)으로는 중간에 끊긴다
+export const maxDuration = 60;
+
 /**
  * 풀이 이미지 제출 → Gemini 채점/피드백 → attempts 기록.
  * 제출 이미지는 저장하지 않고, 회차별 텍스트 요약(issue_summary)만 누적한다.

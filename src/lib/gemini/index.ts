@@ -6,11 +6,18 @@ const MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-function getModel() {
+/**
+ * JSON을 받는 호출은 응답 형식을 JSON으로 고정한다.
+ * 코드펜스·설명 문장을 만들지 않아 응답이 짧고 빨라지며 파싱도 안정적이다.
+ */
+function getModel(jsonMode = false) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
   }
-  return client.getGenerativeModel({ model: MODEL });
+  return client.getGenerativeModel({
+    model: MODEL,
+    ...(jsonMode ? { generationConfig: { responseMimeType: 'application/json' } } : {}),
+  });
 }
 
 /** "중2" 같은 학년 값에서 학교급(초/중/고)을 뽑는다. */
@@ -93,6 +100,7 @@ figure_svg 작성 규칙:
 - 변의 길이, 각도, 좌표, 점 이름(A, B, C) 등 문제에 필요한 값은 <text>로 그림 안에 표기하세요.
 - 선은 stroke="#333" stroke-width="2", 글자는 font-size="16" fill="#333", 배경은 투명하게.
 - 구해야 하는 값은 그림에 정답을 쓰지 말고 "?" 또는 x로 표시하세요.
+- 그림은 간결하게: 도형 요소 15개 이내, SVG 전체 1000자 이내. 장식·그림자·그라데이션 금지.
 - 문제 본문에서는 "그림과 같이"처럼 그림을 가리켜도 됩니다.
 
 응답 형식 (JSON):
@@ -106,7 +114,7 @@ figure_svg 작성 규칙:
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel().generateContent(prompt);
+  const result = await getModel(true).generateContent(prompt);
   const parsed = extractJson<{
     problem: string;
     answer: string;
@@ -207,7 +215,7 @@ ${PLAIN_MATH_RULE}
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel().generateContent([prompt, toInlineData(studentImage)]);
+  const result = await getModel(true).generateContent([prompt, toInlineData(studentImage)]);
   return extractJson<GeminiResponse>(result.response.text());
 }
 
@@ -261,6 +269,6 @@ ${PLAIN_MATH_RULE}
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel().generateContent(prompt);
+  const result = await getModel(true).generateContent(prompt);
   return extractJson(result.response.text());
 }

@@ -8,6 +8,8 @@ import InProgressList from '@/components/student/InProgressList';
 import ProblemFigure from '@/components/student/ProblemFigure';
 import { useSession } from '@/lib/hooks/useSession';
 import { useStudySession } from '@/lib/hooks/useStudySession';
+import { useElapsedSeconds } from '@/lib/hooks/useElapsedSeconds';
+import { postJson } from '@/lib/api/request';
 import { compressImage, fileToBase64, validateImageFile } from '@/lib/utils/image';
 import { toReadableMath } from '@/lib/utils/math-text';
 import { MAX_IMAGE_SIZE, MIN_ATTEMPTS_FOR_GIVE_UP, RESIZE_QUALITY, RESIZE_WIDTH } from '@/lib/constants';
@@ -65,6 +67,9 @@ function SolvePageInner() {
   const [givingUp, setGivingUp] = useState(false);
   const [showGiveUpModal, setShowGiveUpModal] = useState(false);
   const [error, setError] = useState('');
+
+  const waiting = generatingNext || submitting || givingUp || loadingProblem;
+  const elapsed = useElapsedSeconds(waiting);
 
   const canvasRef = useRef<SolutionCanvasHandle>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -157,16 +162,11 @@ function SolvePageInner() {
     setGeneratingNext(true);
     setError('');
     try {
-      const res = await fetch('/api/problems/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade_option_id: problemMeta.grade_option_id,
-          unit_id: problemMeta.unit_id,
-          difficulty_option_id: problemMeta.difficulty_option_id,
-        }),
+      const json = await postJson('/api/problems/generate', {
+        grade_option_id: problemMeta.grade_option_id,
+        unit_id: problemMeta.unit_id,
+        difficulty_option_id: problemMeta.difficulty_option_id,
       });
-      const json = await res.json();
 
       if (!json.success) {
         setError(json.error || '다음 문제를 만들지 못했습니다.');
@@ -180,8 +180,6 @@ function SolvePageInner() {
         `/student/solve?problem_id=${json.data.problem_id}${json.data.targeted_weakness ? '&boost=1' : ''}`
       );
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch {
-      setError('다음 문제를 만들지 못했습니다.');
     } finally {
       setGeneratingNext(false);
     }
@@ -205,12 +203,7 @@ function SolvePageInner() {
       const raw = await fileToBase64(file);
       const compressed = await compressImage(raw, RESIZE_WIDTH, RESIZE_QUALITY);
 
-      const res = await fetch('/api/problems/from-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image_base64: compressed }),
-      });
-      const json = await res.json();
+      const json = await postJson('/api/problems/from-image', { image_base64: compressed });
 
       if (!json.success) {
         setError(json.error || '문제 등록에 실패했습니다.');
@@ -234,12 +227,10 @@ function SolvePageInner() {
     setSubmitting(true);
     setError('');
     try {
-      const res = await fetch('/api/attempts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ problem_id: problemId, image_base64: imageBase64 }),
+      const json = await postJson('/api/attempts', {
+        problem_id: problemId,
+        image_base64: imageBase64,
       });
-      const json = await res.json();
 
       if (!json.success) {
         setError(json.error || '채점에 실패했습니다.');
@@ -250,8 +241,6 @@ function SolvePageInner() {
       setAttempts((prev) => [...prev, result]);
       setLatest(result);
       canvasRef.current?.clear();
-    } catch {
-      setError('채점에 실패했습니다.');
     } finally {
       setSubmitting(false);
     }
@@ -286,12 +275,7 @@ function SolvePageInner() {
   const handleGiveUp = async () => {
     setGivingUp(true);
     try {
-      const res = await fetch(`/api/problems/${problemId}/give-up`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
+      const json = await postJson(`/api/problems/${problemId}/give-up`, {});
 
       if (!json.success) {
         setError(json.error || '포기 처리에 실패했습니다.');
@@ -300,8 +284,6 @@ function SolvePageInner() {
 
       setGiveUpResult({ answer: json.data.answer, explanation: json.data.explanation });
       setShowGiveUpModal(false);
-    } catch {
-      setError('포기 처리에 실패했습니다.');
     } finally {
       setGivingUp(false);
     }
@@ -350,7 +332,16 @@ function SolvePageInner() {
         </>
       ) : loadingProblem || generatingNext ? (
         <div className={styles.emptyState}>
-          {generatingNext ? 'AI가 다음 문제를 만드는 중...' : '문제를 불러오는 중...'}
+          {generatingNext ? (
+            <>
+              <p>AI가 다음 문제를 만드는 중... {elapsed}초</p>
+              <p className={styles.emptyHint}>
+                문제와 그림을 함께 만드느라 20~40초쯤 걸려요.
+              </p>
+            </>
+          ) : (
+            '문제를 불러오는 중...'
+          )}
         </div>
       ) : (
         <>
@@ -396,7 +387,7 @@ function SolvePageInner() {
                     onClick={handleCanvasSubmit}
                     disabled={submitting}
                   >
-                    {submitting ? 'AI가 채점 중...' : '풀이 제출하기'}
+                    {submitting ? `AI가 채점 중... ${elapsed}초` : '풀이 제출하기'}
                   </button>
                 </>
               ) : (
@@ -414,7 +405,7 @@ function SolvePageInner() {
                     onClick={() => photoInputRef.current?.click()}
                     disabled={submitting}
                   >
-                    {submitting ? 'AI가 채점 중...' : '📷 사진 선택'}
+                    {submitting ? `AI가 채점 중... ${elapsed}초` : '📷 사진 선택'}
                   </button>
                 </div>
               )}
@@ -476,7 +467,7 @@ function SolvePageInner() {
                   disabled={generatingNext}
                 >
                   {generatingNext
-                    ? 'AI가 다음 문제를 만드는 중...'
+                    ? `AI가 다음 문제를 만드는 중... ${elapsed}초`
                     : canRepeatType
                       ? '➡️ 같은 유형 다음 문제'
                       : '다음 문제 풀기'}

@@ -113,3 +113,11 @@
   font-size: 13px;
   line-height: 1.6;
 }
+
+.waitHint {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #7a8194;
+  text-align: center;
+  line-height: 1.6;
+}

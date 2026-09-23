@@ -6,6 +6,9 @@ import { ok, fail, handleError } from '@/lib/api/respond';
 import { MIN_ATTEMPTS_FOR_GIVE_UP } from '@/lib/constants';
 import type { Attempt } from '@/types';
 
+// Gemini 호출이 20~50초까지 걸려 기본 제한(10초)으로는 중간에 끊긴다
+export const maxDuration = 60;
+
 /** 포기 처리: 3회 이상 시도한 경우에만 허용, 정답 + 쉬운 풀이 제공. */
 export async function POST(
   request: NextRequest,

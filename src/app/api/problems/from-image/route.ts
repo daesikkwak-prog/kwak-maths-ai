@@ -4,6 +4,9 @@ import { parseUserUploadedProblem } from '@/lib/gemini';
 import { requireUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api/respond';
 
+// Gemini 호출이 20~50초까지 걸려 기본 제한(10초)으로는 중간에 끊긴다
+export const maxDuration = 60;
+
 /**
  * "내 문제 풀기": 문제집 사진 → 문제 본문 추출 후 저장 (source=user_uploaded).
  * 정답은 미리 알 수 없으므로 채점은 매 시도마다 AI가 즉석에서 수행한다.

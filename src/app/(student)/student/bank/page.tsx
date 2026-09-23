@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import InProgressList from '@/components/student/InProgressList';
 import { useSession } from '@/lib/hooks/useSession';
+import { useElapsedSeconds } from '@/lib/hooks/useElapsedSeconds';
+import { postJson } from '@/lib/api/request';
 import { WEAKNESS_RATE_THRESHOLD } from '@/lib/problems/weakness';
 import styles from './Bank.module.css';
 
@@ -37,6 +39,7 @@ export default function ProblemBank() {
   const [difficultyId, setDifficultyId] = useState('');
 
   const [generating, setGenerating] = useState(false);
+  const elapsed = useElapsedSeconds(generating);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -85,16 +88,11 @@ export default function ProblemBank() {
     setGenerating(true);
     setError('');
     try {
-      const res = await fetch('/api/problems/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          grade_option_id: gradeId,
-          unit_id: unitId || null,
-          difficulty_option_id: difficultyId,
-        }),
+      const json = await postJson('/api/problems/generate', {
+        grade_option_id: gradeId,
+        unit_id: unitId || null,
+        difficulty_option_id: difficultyId,
       });
-      const json = await res.json();
 
       if (!json.success) {
         setError(json.error || '문제 생성에 실패했습니다.');
@@ -104,8 +102,6 @@ export default function ProblemBank() {
       router.push(
         `/student/solve?problem_id=${json.data.problem_id}${json.data.targeted_weakness ? '&boost=1' : ''}`
       );
-    } catch {
-      setError('문제 생성에 실패했습니다.');
     } finally {
       setGenerating(false);
     }
@@ -186,8 +182,13 @@ export default function ProblemBank() {
         </div>
 
         <button className={styles.generateBtn} onClick={handleGenerate} disabled={generating}>
-          {generating ? 'AI가 문제를 만드는 중...' : '문제 받기'}
+          {generating ? `AI가 문제를 만드는 중... ${elapsed}초` : '문제 받기'}
         </button>
+        {generating && (
+          <p className={styles.waitHint}>
+            문제와 그림을 함께 만드느라 20~40초쯤 걸려요. 잠시만 기다려 주세요.
+          </p>
+        )}
       </div>
     </div>
   );

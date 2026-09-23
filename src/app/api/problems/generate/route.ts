@@ -6,6 +6,9 @@ import { buildWeaknessNote, getWeaknessContext } from '@/lib/problems/weakness';
 import { sanitizeSvg } from '@/lib/utils/svg';
 import { ok, fail, handleError } from '@/lib/api/respond';
 
+// Gemini 호출이 20~50초까지 걸려 기본 제한(10초)으로는 중간에 끊긴다
+export const maxDuration = 60;
+
 /** 문제은행 출제: 학년/단원/난이도 기반 AI 출제 (정답·풀이 함께 생성 후 고정 저장) */
 export async function POST(request: NextRequest) {
   try {
