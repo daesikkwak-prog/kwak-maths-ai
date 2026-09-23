@@ -9,6 +9,7 @@ import ProblemFigure from '@/components/student/ProblemFigure';
 import { useSession } from '@/lib/hooks/useSession';
 import { useStudySession } from '@/lib/hooks/useStudySession';
 import { compressImage, fileToBase64, validateImageFile } from '@/lib/utils/image';
+import { toReadableMath } from '@/lib/utils/math-text';
 import { MAX_IMAGE_SIZE, MIN_ATTEMPTS_FOR_GIVE_UP, RESIZE_QUALITY, RESIZE_WIDTH } from '@/lib/constants';
 import styles from './Solve.module.css';
 
@@ -366,7 +367,7 @@ function SolvePageInner() {
                 🎯 아직 어려워하는 유형이라 비슷한 문제로 한 번 더 연습해요
               </p>
             )}
-            <p className={styles.problemText}>{problemText}</p>
+            <p className={styles.problemText}>{toReadableMath(problemText)}</p>
             <ProblemFigure svg={problemFigure} />
           </section>
 
@@ -429,11 +430,11 @@ function SolvePageInner() {
               className={latest.is_correct ? styles.feedbackCorrect : styles.feedbackCard}
             >
               <h2>{latest.is_correct ? '🎉 정답이에요!' : '🤔 다시 한번 볼까요?'}</h2>
-              <p className={styles.feedbackText}>{latest.feedback}</p>
+              <p className={styles.feedbackText}>{toReadableMath(latest.feedback)}</p>
               {latest.is_correct && latest.final_solution_text && (
                 <div className={styles.solutionBox}>
                   <strong>내가 쓴 풀이</strong>
-                  <p>{latest.final_solution_text}</p>
+                  <p>{toReadableMath(latest.final_solution_text)}</p>
                 </div>
               )}
             </section>
@@ -444,10 +445,10 @@ function SolvePageInner() {
               <h2>📖 정답과 풀이</h2>
               {giveUpResult.answer && (
                 <p className={styles.answerLine}>
-                  <strong>정답:</strong> {giveUpResult.answer}
+                  <strong>정답:</strong> {toReadableMath(giveUpResult.answer)}
                 </p>
               )}
-              <p className={styles.feedbackText}>{giveUpResult.explanation}</p>
+              <p className={styles.feedbackText}>{toReadableMath(giveUpResult.explanation)}</p>
             </section>
           )}
 
@@ -458,7 +459,7 @@ function SolvePageInner() {
                 {attempts.map((a) => (
                   <li key={a.attempt_no}>
                     <span className={styles.historyNo}>{a.attempt_no}차</span>
-                    <span>{a.issue_summary}</span>
+                    <span>{toReadableMath(a.issue_summary)}</span>
                     {a.is_correct && <span className={styles.correctTag}>정답</span>}
                   </li>
                 ))}

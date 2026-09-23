@@ -30,6 +30,13 @@ function buildRuleSection(aiRules: AIRule[], level: AIRuleLevel | SchoolLevel): 
   ].join('\n\n');
 }
 
+/**
+ * 화면에 그대로 뿌리는 텍스트라 LaTeX가 섞이면 "$4\\text{cm}$"처럼 보인다.
+ * (그래도 섞여 오면 화면에서 lib/utils/math-text.ts가 한 번 더 정리한다)
+ */
+const PLAIN_MATH_RULE = `수식 표기 규칙: LaTeX나 마크다운을 절대 쓰지 마세요. $, \\frac, \\text, ^, _, ** 금지.
+일반 텍스트와 유니코드 기호로만 쓰세요. (예: 4cm, 1/2, x², √2, π, 30°, 3×4, 12÷3, ≤, ∠ABC)`;
+
 function extractJson<T>(text: string): T {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = fenced ? fenced[1] : text;
@@ -73,6 +80,7 @@ ${buildRuleSection(aiRules, gradeToSchoolLevel(grade))}
 ${weaknessNote ? `\n${weaknessNote}\n` : ''}
 주의사항:
 - 정답은 채점 기준이 되므로 명확하고 유일해야 합니다.
+- ${PLAIN_MATH_RULE}
 - 도형, 각도, 좌표평면, 그래프, 수직선, 시계, 표, 길이 비교처럼 그림이 있어야 이해되는 문제라면
   말로 길게 설명하지 말고 반드시 figure_svg에 실제 그림을 SVG로 그려주세요.
   (예: "지름이 6cm인 원" → 원을 그리고 지름 선분과 "6cm" 표시를 그림 안에 넣기)
@@ -186,6 +194,8 @@ ${attemptHistory || '첫 시도'}
 3. 정답이면 학생이 작성한 풀이를 텍스트로 옮겨 정리 (final_solution_text)
 4. 피드백 (오답이면 정답을 절대 직접 알려주지 말고, 틀린 지점을 짚어 다음 단계를 유도하는 질문. 정답이면 칭찬)
 
+${PLAIN_MATH_RULE}
+
 응답 형식 (JSON):
 {
   "is_correct": true 또는 false,
@@ -206,7 +216,7 @@ export async function parseUserUploadedProblem(imageBase64: string): Promise<str
   const prompt = `
 이 이미지에 나타난 수학 문제를 텍스트로 정확하게 옮겨적어주세요.
 객관식이면 보기(①②③④⑤)도 함께 옮겨적으세요.
-수식은 자연스럽게 표현하되, 필요하면 LaTeX 표기를 사용해도 됩니다.
+${PLAIN_MATH_RULE}
 문제 본문만 제공하고, 답이나 풀이는 포함하지 마세요.
   `.trim();
 
@@ -239,6 +249,8 @@ ${buildRuleSection(aiRules, schoolLevel)}
 ${problemContent || '(문제 본문 없음)'}
 ${figureSection}
 ${correctAnswer ? `[정답]\n${correctAnswer}` : '[정답]\n저장된 정답이 없습니다. 직접 풀어 정답을 구하세요.'}
+
+${PLAIN_MATH_RULE}
 
 응답 형식 (JSON):
 {

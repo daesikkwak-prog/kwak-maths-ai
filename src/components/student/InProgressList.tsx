@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { toReadableMath } from '@/lib/utils/math-text';
 import styles from './InProgressList.module.css';
 
 interface InProgressProblem {
@@ -40,12 +41,14 @@ export default function InProgressList({ currentProblemId }: { currentProblemId?
     <section className={styles.wrapper}>
       <h3>⏳ 풀다 만 문제</h3>
       <ul className={styles.list}>
-        {visible.map((item) => (
+        {visible.map((item) => {
+          const preview = toReadableMath(item.content);
+          return (
           <li key={item.problem_id}>
             <button onClick={() => router.push(`/student/solve?problem_id=${item.problem_id}`)}>
               <span className={styles.preview}>
-                {item.content ? item.content.slice(0, 50) : '(문제 본문 없음)'}
-                {item.content && item.content.length > 50 ? '…' : ''}
+                {preview ? preview.slice(0, 50) : '(문제 본문 없음)'}
+                {preview.length > 50 ? '…' : ''}
               </span>
               <span className={styles.meta}>
                 {item.unit_name && <span>{item.unit_name}</span>}
@@ -54,7 +57,8 @@ export default function InProgressList({ currentProblemId }: { currentProblemId?
               </span>
             </button>
           </li>
-        ))}
+          );
+        })}
       </ul>
     </section>
   );
