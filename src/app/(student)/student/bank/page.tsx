@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import InProgressList from '@/components/student/InProgressList';
 import { useSession } from '@/lib/hooks/useSession';
+import { WEAKNESS_RATE_THRESHOLD } from '@/lib/problems/weakness';
 import styles from './Bank.module.css';
 
 interface Option {
@@ -16,6 +17,11 @@ interface Unit {
   name: string;
   answer_type: string;
   formula_required: boolean;
+  /** 이 단원에서 한 번에 맞힌 비율(%) — 완료 문제가 적으면 null */
+  correct_rate: number | null;
+  completed_problems: number;
+  /** true면 비슷한 유형으로 보강 출제된다 */
+  is_weak: boolean;
 }
 
 export default function ProblemBank() {
@@ -95,7 +101,9 @@ export default function ProblemBank() {
         return;
       }
 
-      router.push(`/student/solve?problem_id=${json.data.problem_id}`);
+      router.push(
+        `/student/solve?problem_id=${json.data.problem_id}${json.data.targeted_weakness ? '&boost=1' : ''}`
+      );
     } catch {
       setError('문제 생성에 실패했습니다.');
     } finally {
@@ -142,6 +150,8 @@ export default function ProblemBank() {
             {units.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
+                {u.correct_rate !== null ? ` (정답률 ${u.correct_rate}%)` : ''}
+                {u.is_weak ? ' 🎯' : ''}
               </option>
             ))}
           </select>
@@ -149,6 +159,12 @@ export default function ProblemBank() {
             <span className={styles.unitHint}>
               {selectedUnit.answer_type === 'objective' ? '객관식' : '주관식'} ·{' '}
               {selectedUnit.formula_required ? '풀이 과정 필수' : '답만 써도 인정'}
+            </span>
+          )}
+          {selectedUnit?.is_weak && (
+            <span className={styles.weakHint}>
+              🎯 이 유형은 한 번에 맞힌 비율이 {selectedUnit.correct_rate}%예요. {WEAKNESS_RATE_THRESHOLD}%가
+              될 때까지 틀렸던 문제와 비슷한 유형으로 출제돼요.
             </span>
           )}
         </div>

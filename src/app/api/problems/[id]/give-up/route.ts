@@ -61,7 +61,8 @@ export async function POST(
         problem.content || '',
         answer,
         student.school_level,
-        aiRules
+        aiRules,
+        problem.figure_svg
       );
       answer = answer || generated.answer;
       explanation = generated.explanation;

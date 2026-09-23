@@ -55,6 +55,7 @@ export async function POST(request: NextRequest) {
 
     const evaluation = await evaluateAttempt({
       problemContent: problem.content || '',
+      figureSvg: problem.figure_svg,
       answer: problem.answer,
       solution: problem.solution,
       formulaRequired: policy.formulaRequired,

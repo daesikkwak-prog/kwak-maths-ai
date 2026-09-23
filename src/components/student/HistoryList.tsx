@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { HistoryItem } from '@/types';
 import styles from './HistoryList.module.css';
+import ProblemFigure from './ProblemFigure';
 
 const STATUS_LABEL: Record<HistoryItem['status'], string> = {
   correct: '✅ 정답',
@@ -48,6 +49,7 @@ export default function HistoryList({ items }: { items: HistoryItem[] }) {
                 <section>
                   <h4>문제</h4>
                   <p className={styles.text}>{item.content || '(없음)'}</p>
+                  <ProblemFigure svg={item.figure_svg} />
                 </section>
 
                 {item.answer && (

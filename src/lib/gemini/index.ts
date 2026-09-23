@@ -51,13 +51,16 @@ function toInlineData(imageBase64: string) {
 
 /**
  * 문제은행 출제. 정답/풀이를 함께 생성해 저장하고, 이후 채점은 이 정답을 기준으로 고정한다.
+ * 도형·그래프처럼 그림이 필요한 문제는 SVG 그림(figure_svg)도 함께 생성한다.
  */
 export async function generateProblem(
   grade: string,
   unit: string,
   difficulty: string,
-  aiRules: AIRule[]
-): Promise<{ problem: string; answer: string; solution: string }> {
+  aiRules: AIRule[],
+  /** 취약 유형 보강 출제 지시 (없으면 일반 출제) */
+  weaknessNote = ''
+): Promise<{ problem: string; answer: string; solution: string; figure_svg: string }> {
   const prompt = `
 당신은 수학 문제 출제 전문가입니다.
 
@@ -67,14 +70,27 @@ ${buildRuleSection(aiRules, gradeToSchoolLevel(grade))}
 - 학년: ${grade}
 - 단원: ${unit}
 - 난이도: ${difficulty}
-
+${weaknessNote ? `\n${weaknessNote}\n` : ''}
 주의사항:
-- 문제는 그림 없이 글로만 읽고 풀 수 있어야 합니다.
 - 정답은 채점 기준이 되므로 명확하고 유일해야 합니다.
+- 도형, 각도, 좌표평면, 그래프, 수직선, 시계, 표, 길이 비교처럼 그림이 있어야 이해되는 문제라면
+  말로 길게 설명하지 말고 반드시 figure_svg에 실제 그림을 SVG로 그려주세요.
+  (예: "지름이 6cm인 원" → 원을 그리고 지름 선분과 "6cm" 표시를 그림 안에 넣기)
+- 그림이 필요 없는 문제(단순 계산, 일반 문장제)라면 figure_svg는 빈 문자열("")로 두세요.
+
+figure_svg 작성 규칙:
+- <svg 로 시작해 </svg> 로 끝나는 SVG 마크업 하나만 넣습니다. 설명 문장을 섞지 마세요.
+- 반드시 viewBox를 지정하고(예: viewBox="0 0 400 300"), width/height 속성은 넣지 마세요.
+- script, foreignObject, image, 외부 링크(href), 이벤트 속성(onclick 등)은 절대 사용 금지입니다.
+- 변의 길이, 각도, 좌표, 점 이름(A, B, C) 등 문제에 필요한 값은 <text>로 그림 안에 표기하세요.
+- 선은 stroke="#333" stroke-width="2", 글자는 font-size="16" fill="#333", 배경은 투명하게.
+- 구해야 하는 값은 그림에 정답을 쓰지 말고 "?" 또는 x로 표시하세요.
+- 문제 본문에서는 "그림과 같이"처럼 그림을 가리켜도 됩니다.
 
 응답 형식 (JSON):
 {
   "problem": "문제 본문",
+  "figure_svg": "<svg viewBox=\\"0 0 400 300\\">...</svg> 또는 빈 문자열",
   "answer": "정답 (숫자나 식)",
   "solution": "단계별 풀이 과정"
 }
@@ -83,12 +99,21 @@ ${buildRuleSection(aiRules, gradeToSchoolLevel(grade))}
   `.trim();
 
   const result = await getModel().generateContent(prompt);
-  return extractJson(result.response.text());
+  const parsed = extractJson<{
+    problem: string;
+    answer: string;
+    solution: string;
+    figure_svg?: string;
+  }>(result.response.text());
+
+  return { ...parsed, figure_svg: parsed.figure_svg || '' };
 }
 
 export interface EvaluateParams {
   /** 문제 본문 (AI 출제분 또는 사진에서 추출한 텍스트) */
   problemContent: string;
+  /** 문제 그림 SVG (있을 때만 — 그림 속 수치를 읽고 채점해야 하므로 함께 보낸다) */
+  figureSvg?: string | null;
   /** 저장된 정답 (user_uploaded는 없음) */
   answer: string | null;
   /** 저장된 풀이 (user_uploaded는 없음) */
@@ -111,6 +136,7 @@ export interface EvaluateParams {
 export async function evaluateAttempt(params: EvaluateParams): Promise<GeminiResponse> {
   const {
     problemContent,
+    figureSvg,
     answer,
     solution,
     formulaRequired,
@@ -129,6 +155,11 @@ export async function evaluateAttempt(params: EvaluateParams): Promise<GeminiRes
     ? `[채점 기준 — 이 정답을 기준으로만 채점하세요]\n정답: ${answer}\n모범 풀이: ${solution || '(없음)'}`
     : `[채점 기준]\n이 문제는 학생이 직접 올린 문제라 정답이 미리 저장되어 있지 않습니다.\n문제를 직접 풀어 정답을 구한 뒤, 학생의 풀이와 비교해 채점하세요.`;
 
+  // 그림이 있는 문제는 SVG 소스를 함께 보내 그림 속 수치·기호를 읽게 한다
+  const figureSection = figureSvg
+    ? `\n[문제 그림 — SVG 소스, 이 그림에 표시된 수치와 기호도 문제 조건입니다]\n${figureSvg}\n`
+    : '';
+
   const formulaSection = formulaRequired
     ? '이 문제는 풀이 과정(식)이 필수입니다. 답만 적혀 있고 과정이 없으면 정답이라도 is_correct를 false로 하고, 과정을 쓰도록 유도하세요.'
     : '이 문제는 풀이 과정(식) 없이 답만 적어도 정답으로 인정합니다.';
@@ -140,7 +171,7 @@ ${buildRuleSection(aiRules, schoolLevel)}
 
 [문제]
 ${problemContent || '(문제 본문 없음 — 이미지의 풀이 내용만으로 판단하세요)'}
-
+${figureSection}
 ${answerSection}
 
 [풀이 과정 요구사항]
@@ -188,8 +219,14 @@ export async function generateSolutionExplanation(
   problemContent: string,
   correctAnswer: string,
   schoolLevel: SchoolLevel,
-  aiRules: AIRule[]
+  aiRules: AIRule[],
+  /** 문제 그림 SVG (있으면 그림 속 수치까지 보고 풀이한다) */
+  figureSvg?: string | null
 ): Promise<{ answer: string; explanation: string }> {
+  const figureSection = figureSvg
+    ? `\n[문제 그림 — SVG 소스, 그림에 표시된 수치도 문제 조건입니다]\n${figureSvg}\n`
+    : '';
+
   const prompt = `
 당신은 수학 과외 선생님입니다.
 
@@ -200,7 +237,7 @@ ${buildRuleSection(aiRules, schoolLevel)}
 
 [문제]
 ${problemContent || '(문제 본문 없음)'}
-
+${figureSection}
 ${correctAnswer ? `[정답]\n${correctAnswer}` : '[정답]\n저장된 정답이 없습니다. 직접 풀어 정답을 구하세요.'}
 
 응답 형식 (JSON):

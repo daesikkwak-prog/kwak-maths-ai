@@ -246,3 +246,31 @@
   padding: 12px 16px;
   font-size: 14px;
 }
+
+.typeLabel {
+  font-size: 13px;
+  color: #7a8194;
+  margin-bottom: 10px;
+}
+
+.boostNotice {
+  background: #fff6e8;
+  color: #9a6413;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.nextRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.nextRow .btn {
+  margin-top: 0;
+  flex: 1 1 220px;
+}

@@ -69,6 +69,7 @@ CREATE TABLE problems (
   unit_id UUID REFERENCES units(id) ON DELETE SET NULL,
   difficulty_option_id UUID REFERENCES options(id) ON DELETE SET NULL,
   content TEXT,
+  figure_svg TEXT,
   answer TEXT,
   solution TEXT,
   is_active BOOLEAN NOT NULL DEFAULT true,

@@ -12,6 +12,7 @@ interface AttemptWithProblem extends Attempt {
     id: string;
     source: string;
     content: string | null;
+    figure_svg: string | null;
     answer: string | null;
     solution: string | null;
     unit_id: string | null;
@@ -28,7 +29,7 @@ async function loadAttempts(
   const { data, error } = await supabase
     .from('attempts')
     .select(
-      `*, problems ( id, source, content, answer, solution, unit_id, grade_option_id, difficulty_option_id )`
+      `*, problems ( id, source, content, figure_svg, answer, solution, unit_id, grade_option_id, difficulty_option_id )`
     )
     .eq('student_id', studentId)
     .order('created_at', { ascending: true });
@@ -173,6 +174,7 @@ export async function getStudentHistory(
       problem_id: problemId,
       source: (problem?.source as HistoryItem['source']) || 'ai_generated',
       content: problem?.content ?? null,
+      figure_svg: problem?.figure_svg ?? null,
       // 정답/풀이는 문제를 끝낸 뒤에만 공개한다
       answer: status === 'in_progress' ? null : problem?.answer ?? null,
       solution: status === 'in_progress' ? null : problem?.solution ?? null,

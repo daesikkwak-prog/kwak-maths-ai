@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
+import { getCurrentUser } from '@/lib/auth';
+import { getUnitMasteryMap } from '@/lib/problems/weakness';
 import type { ApiResponse } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -35,10 +37,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // 학생이 조회하면 유형별 숙련도(한 번에 맞힌 비율)를 함께 내려 보강 출제 대상을 표시한다
+    const user = await getCurrentUser();
+    if (user?.role !== 'student') {
+      return NextResponse.json({ success: true, data } as ApiResponse<typeof data>);
+    }
+
+    const mastery = await getUnitMasteryMap(supabase, user.id, gradeOptionId);
+    const withMastery = (data || []).map((unit: any) => ({
+      ...unit,
+      correct_rate: mastery.get(unit.id)?.correct_rate ?? null,
+      completed_problems: mastery.get(unit.id)?.completed ?? 0,
+      is_weak: mastery.get(unit.id)?.is_weak ?? false,
+    }));
+
     return NextResponse.json({
       success: true,
-      data,
-    } as ApiResponse<typeof data>);
+      data: withMastery,
+    } as ApiResponse<typeof withMastery>);
   } catch (err) {
     console.error('Error in GET /api/units:', err);
     return NextResponse.json(

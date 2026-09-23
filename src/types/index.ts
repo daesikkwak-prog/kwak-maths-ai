@@ -63,6 +63,7 @@ export interface Problem {
   unit_id: string | null;
   difficulty_option_id: string | null;
   content: string | null; // 문제 본문 (AI 출제분 또는 사진에서 추출한 텍스트)
+  figure_svg: string | null; // 문제 그림 (SVG 마크업, 그림이 필요 없는 문제는 null)
   answer: string | null; // AI가 생성한 정답 (user_uploaded는 null)
   solution: string | null; // AI가 생성한 풀이 (user_uploaded는 null)
   created_at: string;
@@ -139,6 +140,7 @@ export interface HistoryItem {
   problem_id: string;
   source: ProblemSource;
   content: string | null;
+  figure_svg: string | null;
   answer: string | null;
   solution: string | null;
   unit_name: string | null;

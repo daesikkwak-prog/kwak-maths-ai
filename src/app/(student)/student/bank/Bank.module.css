@@ -102,3 +102,14 @@
 .inProgress {
   margin-bottom: 16px;
 }
+
+.weakHint {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: #fff6e8;
+  color: #9a6413;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+}

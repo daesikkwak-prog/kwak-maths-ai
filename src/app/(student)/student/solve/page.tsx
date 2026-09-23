@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import SolutionCanvas, { SolutionCanvasHandle } from '@/components/student/SolutionCanvas';
 import ConfirmGiveUpModal from '@/components/student/ConfirmGiveUpModal';
 import InProgressList from '@/components/student/InProgressList';
+import ProblemFigure from '@/components/student/ProblemFigure';
 import { useSession } from '@/lib/hooks/useSession';
 import { useStudySession } from '@/lib/hooks/useStudySession';
 import { compressImage, fileToBase64, validateImageFile } from '@/lib/utils/image';
@@ -20,7 +21,26 @@ interface AttemptResult {
   can_give_up: boolean;
 }
 
+/** 같은 유형으로 다시 출제할 때 필요한 문제의 출제 조건 */
+interface ProblemMeta {
+  grade_option_id: string | null;
+  unit_id: string | null;
+  difficulty_option_id: string | null;
+  grade_label: string;
+  unit_label: string;
+  difficulty_label: string;
+}
+
 type InputMode = 'canvas' | 'photo';
+
+const emptyMeta: ProblemMeta = {
+  grade_option_id: null,
+  unit_id: null,
+  difficulty_option_id: null,
+  grade_label: '',
+  unit_label: '',
+  difficulty_label: '',
+};
 
 function SolvePageInner() {
   const router = useRouter();
@@ -29,13 +49,17 @@ function SolvePageInner() {
 
   const [problemId, setProblemId] = useState<string>(searchParams.get('problem_id') || '');
   const [problemText, setProblemText] = useState<string>('');
+  const [problemFigure, setProblemFigure] = useState<string>('');
   const [problemSource, setProblemSource] = useState<string>('');
+  const [problemMeta, setProblemMeta] = useState<ProblemMeta>(emptyMeta);
+  const [boosted, setBoosted] = useState(searchParams.get('boost') === '1');
   const [attempts, setAttempts] = useState<AttemptResult[]>([]);
   const [latest, setLatest] = useState<AttemptResult | null>(null);
   const [giveUpResult, setGiveUpResult] = useState<{ answer: string; explanation: string } | null>(null);
 
   const [inputMode, setInputMode] = useState<InputMode>('canvas');
   const [loadingProblem, setLoadingProblem] = useState(false);
+  const [generatingNext, setGeneratingNext] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [givingUp, setGivingUp] = useState(false);
   const [showGiveUpModal, setShowGiveUpModal] = useState(false);
@@ -51,6 +75,11 @@ function SolvePageInner() {
   const solved = latest?.is_correct || !!giveUpResult;
   const attemptCount = attempts.length;
   const canGiveUp = !solved && attemptCount >= MIN_ATTEMPTS_FOR_GIVE_UP;
+  // AI 출제 문제만 같은 조건으로 다시 출제할 수 있다 (내 문제 풀기는 조건이 없음)
+  const canRepeatType = !!problemMeta.grade_option_id && !!problemMeta.difficulty_option_id;
+  const typeLabel = [problemMeta.grade_label, problemMeta.unit_label, problemMeta.difficulty_label]
+    .filter(Boolean)
+    .join(' · ');
 
   /** 문제 본문과 기존 시도 기록을 불러온다 (새로고침/링크 진입 대응) */
   const loadProblem = useCallback(async (id: string) => {
@@ -71,7 +100,16 @@ function SolvePageInner() {
       }
 
       setProblemText(problemJson.data.problem_text || '');
+      setProblemFigure(problemJson.data.figure_svg || '');
       setProblemSource(problemJson.data.source || '');
+      setProblemMeta({
+        grade_option_id: problemJson.data.grade_option_id ?? null,
+        unit_id: problemJson.data.unit_id ?? null,
+        difficulty_option_id: problemJson.data.difficulty_option_id ?? null,
+        grade_label: problemJson.data.grade_label || '',
+        unit_label: problemJson.data.unit_label || '',
+        difficulty_label: problemJson.data.difficulty_label || '',
+      });
 
       if (attemptsJson.success) {
         const list: AttemptResult[] = (attemptsJson.data || []).map((a: any) => ({
@@ -102,8 +140,50 @@ function SolvePageInner() {
     setAttempts([]);
     setLatest(null);
     setGiveUpResult(null);
+    setProblemFigure('');
+    setProblemMeta(emptyMeta);
     setError('');
     canvasRef.current?.clear();
+  };
+
+  /** "다음 문제": 방금 푼 문제와 같은 조건(학년·단원·난이도)으로 바로 다시 출제 */
+  const handleNextProblem = async () => {
+    if (!canRepeatType) {
+      router.push('/student/bank');
+      return;
+    }
+
+    setGeneratingNext(true);
+    setError('');
+    try {
+      const res = await fetch('/api/problems/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          grade_option_id: problemMeta.grade_option_id,
+          unit_id: problemMeta.unit_id,
+          difficulty_option_id: problemMeta.difficulty_option_id,
+        }),
+      });
+      const json = await res.json();
+
+      if (!json.success) {
+        setError(json.error || '다음 문제를 만들지 못했습니다.');
+        return;
+      }
+
+      resetProblemState();
+      setBoosted(!!json.data.targeted_weakness);
+      setProblemId(json.data.problem_id);
+      router.replace(
+        `/student/solve?problem_id=${json.data.problem_id}${json.data.targeted_weakness ? '&boost=1' : ''}`
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch {
+      setError('다음 문제를 만들지 못했습니다.');
+    } finally {
+      setGeneratingNext(false);
+    }
   };
 
   /** "내 문제 풀기": 문제집 사진 → 문제 등록 */
@@ -137,6 +217,7 @@ function SolvePageInner() {
       }
 
       resetProblemState();
+      setBoosted(false);
       setProblemId(json.data.problem_id);
       setProblemText(json.data.problem_text);
       setProblemSource(json.data.source);
@@ -244,7 +325,7 @@ function SolvePageInner() {
           <button
             className={styles.btnSecondary}
             onClick={() => myProblemInputRef.current?.click()}
-            disabled={loadingProblem}
+            disabled={loadingProblem || generatingNext}
           >
             📷 내 문제 풀기
           </button>
@@ -266,8 +347,10 @@ function SolvePageInner() {
           </div>
           <InProgressList />
         </>
-      ) : loadingProblem ? (
-        <div className={styles.emptyState}>문제를 불러오는 중...</div>
+      ) : loadingProblem || generatingNext ? (
+        <div className={styles.emptyState}>
+          {generatingNext ? 'AI가 다음 문제를 만드는 중...' : '문제를 불러오는 중...'}
+        </div>
       ) : (
         <>
           <section className={styles.problemCard}>
@@ -277,7 +360,14 @@ function SolvePageInner() {
               </span>
               <span className={styles.attemptCount}>시도 {attemptCount}회</span>
             </div>
+            {typeLabel && <p className={styles.typeLabel}>{typeLabel}</p>}
+            {boosted && (
+              <p className={styles.boostNotice}>
+                🎯 아직 어려워하는 유형이라 비슷한 문제로 한 번 더 연습해요
+              </p>
+            )}
             <p className={styles.problemText}>{problemText}</p>
+            <ProblemFigure svg={problemFigure} />
           </section>
 
           {!solved && (
@@ -378,9 +468,28 @@ function SolvePageInner() {
 
           <div className={styles.bottomActions}>
             {solved ? (
-              <button className={styles.btn} onClick={() => router.push('/student/bank')}>
-                다음 문제 풀기
-              </button>
+              <div className={styles.nextRow}>
+                <button
+                  className={styles.btn}
+                  onClick={handleNextProblem}
+                  disabled={generatingNext}
+                >
+                  {generatingNext
+                    ? 'AI가 다음 문제를 만드는 중...'
+                    : canRepeatType
+                      ? '➡️ 같은 유형 다음 문제'
+                      : '다음 문제 풀기'}
+                </button>
+                {canRepeatType && (
+                  <button
+                    className={styles.btnSecondary}
+                    onClick={() => router.push('/student/bank')}
+                    disabled={generatingNext}
+                  >
+                    📚 다른 유형 고르기
+                  </button>
+                )}
+              </div>
             ) : (
               <button
                 className={styles.giveUpBtn}
