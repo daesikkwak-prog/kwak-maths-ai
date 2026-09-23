@@ -9,15 +9,35 @@ const client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 /**
  * JSON을 받는 호출은 응답 형식을 JSON으로 고정한다.
  * 코드펜스·설명 문장을 만들지 않아 응답이 짧고 빨라지며 파싱도 안정적이다.
+ *
+ * thinkingBudget 0은 모델의 내부 추론을 끄는 설정으로 출제가 4배 가까이 빨라지지만,
+ * 어려운 문제에서는 정답을 틀리게 만든다. 저장된 정답이 곧 채점 기준이므로
+ * 안전한 범위(아래 shouldSkipThinking)에서만 쓴다.
  */
-function getModel(jsonMode = false) {
+function getModel(jsonMode = false, thinkingBudget?: number) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY가 설정되지 않았습니다.');
   }
+
+  const generationConfig: Record<string, unknown> = {};
+  if (jsonMode) generationConfig.responseMimeType = 'application/json';
+  if (thinkingBudget !== undefined) generationConfig.thinkingConfig = { thinkingBudget };
+
   return client.getGenerativeModel({
     model: MODEL,
-    ...(jsonMode ? { generationConfig: { responseMimeType: 'application/json' } } : {}),
+    ...(Object.keys(generationConfig).length > 0 ? { generationConfig: generationConfig as any } : {}),
   });
+}
+
+/**
+ * 내부 추론을 생략해도 되는 출제인지 판단한다.
+ *
+ * 측정치 (2026-09-23, gemini-3.6-flash):
+ * - 초등·중등 쉬운 문제: 추론 없이 4문제 모두 정답, 평균 4.5초 (추론 시 17.0초)
+ * - 고등·난이도 상: 추론 없이 4문제 중 3문제 오답 → 반드시 추론을 켠다
+ */
+function shouldSkipThinking(grade: string, difficulty: string): boolean {
+  return gradeToSchoolLevel(grade) === '초' && difficulty !== '상';
 }
 
 /** "중2" 같은 학년 값에서 학교급(초/중/고)을 뽑는다. */
@@ -50,6 +70,29 @@ function extractJson<T>(text: string): T {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error('AI 응답 형식이 올바르지 않습니다.');
   return JSON.parse(match[0]) as T;
+}
+
+/**
+ * JSON 응답을 받아 파싱한다. 드물게 형식이 깨져 오므로 한 번 더 시도한다.
+ * (파싱 실패는 학생 화면에 "AI 응답 형식이 올바르지 않습니다"로 그대로 노출된다)
+ */
+async function generateJson<T>(
+  model: ReturnType<typeof getModel>,
+  request: Parameters<ReturnType<typeof getModel>['generateContent']>[0]
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const result = await model.generateContent(request);
+    try {
+      return extractJson<T>(result.response.text());
+    } catch (err) {
+      lastError = err;
+      console.warn(`Gemini JSON 파싱 실패 (${attempt}/2)`);
+    }
+  }
+
+  throw lastError;
 }
 
 /** 이미지 base64(data URL 또는 순수 base64)를 Gemini inlineData로 변환한다. */
@@ -114,13 +157,12 @@ figure_svg 작성 규칙:
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel(true).generateContent(prompt);
-  const parsed = extractJson<{
+  const parsed = await generateJson<{
     problem: string;
     answer: string;
     solution: string;
     figure_svg?: string;
-  }>(result.response.text());
+  }>(getModel(true, shouldSkipThinking(grade, difficulty) ? 0 : undefined), prompt);
 
   return { ...parsed, figure_svg: parsed.figure_svg || '' };
 }
@@ -215,8 +257,7 @@ ${PLAIN_MATH_RULE}
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel(true).generateContent([prompt, toInlineData(studentImage)]);
-  return extractJson<GeminiResponse>(result.response.text());
+  return generateJson<GeminiResponse>(getModel(true), [prompt, toInlineData(studentImage)]);
 }
 
 /** "내 문제 풀기" — 문제집 사진에서 문제 본문을 텍스트로 추출한다. */
@@ -269,6 +310,5 @@ ${PLAIN_MATH_RULE}
 반드시 JSON 형식으로만 응답하세요.
   `.trim();
 
-  const result = await getModel(true).generateContent(prompt);
-  return extractJson(result.response.text());
+  return generateJson<{ answer: string; explanation: string }>(getModel(true), prompt);
 }
