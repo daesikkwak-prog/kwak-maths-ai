@@ -17,7 +17,7 @@ Supabase 대시보드 → SQL Editor에서 **순서대로** 실행합니다.
 | 상황 | 실행할 파일 |
 | --- | --- |
 | 새 프로젝트 | `supabase/schema.sql` (마이그레이션 내용 포함됨) |
-| 기존 프로젝트 | `supabase/migrations/001_problem_content_and_auth.sql` → `002_fix_unique_constraints.sql` → `003_problem_figure_svg.sql` |
+| 기존 프로젝트 | `supabase/migrations/001_problem_content_and_auth.sql` → `002_fix_unique_constraints.sql` → `003_problem_figure_svg.sql` → `004_recreate_active_problems_view.sql` |
 
 > 002를 실행하기 전에 중복 데이터를 먼저 정리해야 합니다: `npx tsx scripts/dedupe-options.ts`
 
@@ -110,6 +110,7 @@ vercel.com → 프로젝트 → Settings → Git에서 저장소를 연결하세
 | 로그인 시 "비밀번호가 설정되지 않은 계정입니다" | 마이그레이션 이전에 만든 계정. 관리자 화면에서 비밀번호 변경, 또는 `create-admin` 스크립트 실행 |
 | 문제 생성 시 저장 실패 | `problems.content` 컬럼 누락 → 마이그레이션 001 실행 |
 | 문제에 그림이 나오지 않음 | `problems.figure_svg` 컬럼 누락 → 마이그레이션 003 실행 |
+| 출제 후 "문제를 찾을 수 없습니다" | `active_problems` 뷰에 figure_svg 미반영 → 마이그레이션 004 실행 |
 | Gemini 404 (`model is no longer available`) | 모델 단종. `GEMINI_MODEL` 환경변수로 최신 모델 지정 |
 | 선택지가 중복 표시됨 | `npx tsx scripts/dedupe-options.ts` 실행 후 마이그레이션 002 적용 |
 | 계정 생성 시 "삭제된 계정이 같은 사용자명을 사용 중입니다" | 소프트 삭제된 계정이 이름과 Auth 계정을 계속 점유합니다. 다른 이름을 쓰세요 |

@@ -46,6 +46,16 @@ async function main() {
     return error ? '뷰 재생성 필요 (마이그레이션 001의 DROP/CREATE VIEW 부분)' : null;
   });
 
+  await check('problems.figure_svg 컬럼', async () => {
+    const { error } = await supabase.from('problems').select('figure_svg').limit(1);
+    return error ? '마이그레이션 003 미적용 (supabase/migrations/003_*.sql 실행 필요)' : null;
+  });
+
+  await check('active_problems 뷰에 figure_svg 반영', async () => {
+    const { error } = await supabase.from('active_problems').select('figure_svg').limit(1);
+    return error ? '뷰 재생성 필요 (마이그레이션 004 실행)' : null;
+  });
+
   await check('선택지(학년/난이도) 데이터', async () => {
     const { data, error } = await supabase.from('active_options').select('type');
     if (error) return error.message;

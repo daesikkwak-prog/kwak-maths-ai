@@ -25,10 +25,13 @@ export async function POST(request: NextRequest) {
       return fail('문제와 풀이 이미지가 필요합니다.');
     }
 
+      // active_problems 뷰는 컬럼 추가 시 재생성해야 해서, 같은 조건을 직접 걸어 조회한다
     const { data: problem } = await supabase
-      .from('active_problems')
+      .from('problems')
       .select('*')
       .eq('id', problem_id)
+      .eq('is_active', true)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (!problem) return fail('문제를 찾을 수 없습니다.', 404);

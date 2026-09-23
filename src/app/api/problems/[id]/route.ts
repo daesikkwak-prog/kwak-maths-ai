@@ -15,10 +15,13 @@ export async function GET(
     const { id } = await params;
     const supabase = await getSupabaseServerClient();
 
+      // active_problems 뷰는 컬럼 추가 시 재생성해야 해서, 같은 조건을 직접 걸어 조회한다
     const { data: problem } = await supabase
-      .from('active_problems')
+      .from('problems')
       .select('id, source, content, figure_svg, unit_id, grade_option_id, difficulty_option_id, created_at')
       .eq('id', id)
+      .eq('is_active', true)
+      .is('deleted_at', null)
       .maybeSingle();
 
     if (!problem) return fail('문제를 찾을 수 없습니다.', 404);
